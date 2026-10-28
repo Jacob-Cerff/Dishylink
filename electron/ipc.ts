@@ -25,3 +25,6 @@ export const TRAY_ICON_STYLE_CHANNEL = "tray-icon-style";
 /** Carries an UpdateState whenever a GitHub Releases check changes it, plus once
  *  per window load so a fresh renderer starts from the real state. */
 export const UPDATE_STATE_CHANNEL = "update-state";
+
+/** Explicit Windows multi-account operations; stored secrets are never returned. */
+export const ACCOUNT_REQUEST_CHANNEL = "account-request";

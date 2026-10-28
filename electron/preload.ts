@@ -8,12 +8,14 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { NotificationState } from "../core/alertNotification";
 import type { HostNetworkIdentity } from "../core/hostNetworkIdentity";
 import type { RouterAddress } from "../core/ipAddress";
+import type { AccountRequest } from "../core/accountBridge";
 import {
   NOTIFICATION_STATE_CHANNEL,
   MENUBAR_THROUGHPUT_CHANNEL,
   HIDE_TRAY_ICON_CHANNEL,
   TRAY_ICON_STYLE_CHANNEL,
   UPDATE_STATE_CHANNEL,
+  ACCOUNT_REQUEST_CHANNEL,
 } from "./ipc";
 import type { UpdateState } from "./updater";
 
@@ -48,6 +50,12 @@ contextBridge.exposeInMainWorld("dishlink", {
   // Opens the Starlink login window in the main process; resolves once the account
   // is connected, or with ok:false if the user closes it.
   signIn: (): Promise<{ ok: boolean; message?: string }> => ipcRenderer.invoke("starlink-signin"),
+  ...(process.platform === "win32"
+    ? {
+        accountRequest: (request: AccountRequest): Promise<{ status: number; body: unknown }> =>
+          ipcRenderer.invoke(ACCOUNT_REQUEST_CHANNEL, request),
+      }
+    : {}),
   // Answers the renderer's /cloud/* calls from the main process, which is where
   // the account session lives. The window's own origin only serves those routes
   // when it is loaded over app://; on the dev server it is Vite's origin, whose

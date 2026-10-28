@@ -29,6 +29,9 @@ import {
   type ThroughputSample,
 } from "./collector";
 import { startCloud, handleCloudRequest, signIn } from "./cloud";
+import { startAccounts, stopAccounts, handleAccountRequest } from "./accounts";
+import { trustedAccountFrame } from "./accountController";
+import { ACCOUNT_REQUEST_CHANNEL } from "./ipc";
 import { hostIdentity, rememberSelfDevice } from "./selfDevice";
 import { normalizeIpAddress, type RouterAddress } from "../core/ipAddress";
 import { ROUTER_LAN_ADDRESS } from "../core/dishClient";
@@ -506,6 +509,20 @@ function configureLoginItem(): void {
  *  IPC. A dev-server window can't fetch app:// routes directly; routing both through
  *  one handler gives the desktop app one session however it launched. */
 function registerCloudHandlers(): void {
+  if (process.platform === "win32") {
+    ipcMain.handle(ACCOUNT_REQUEST_CHANNEL, (event, request: unknown) => {
+      if (
+        !trustedAccountFrame(
+          event.senderFrame?.url ?? "",
+          devServerUrl ?? APP_ENTRY_URL,
+          event.sender === mainWindow?.webContents,
+          event.senderFrame === event.sender.mainFrame,
+        )
+      )
+        return { status: 403, body: { error: "untrusted_account_sender" } };
+      return handleAccountRequest(request);
+    });
+  }
   ipcMain.handle("starlink-signin", (event) =>
     signIn(BrowserWindow.fromWebContents(event.sender) ?? undefined),
   );
@@ -754,6 +771,7 @@ void app.whenReady().then(async () => {
   // the recorder runs inside it, so a separate session here would leave a window
   // signed in and its own limits unenforceable.
   startCloud(rendererRoot, devServerUrl ? resolve(process.cwd(), ".starlink-cookie") : undefined);
+  if (process.platform === "win32") startAccounts(() => mainWindow ?? undefined);
   registerCloudHandlers();
   // A dev server runs its own recorder; a second collector here would double-poll
   // the dish.
@@ -783,3 +801,4 @@ void app.whenReady().then(async () => {
 app.on("window-all-closed", () => {});
 
 app.on("activate", showWindow);
+app.on("before-quit", stopAccounts);

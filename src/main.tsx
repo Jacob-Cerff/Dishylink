@@ -4,6 +4,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
+import { AccountTestPanel } from "./components/dev/AccountTestPanel.tsx";
 import { RecoveringErrorBoundary } from "./components/shared/RecoveringErrorBoundary.tsx";
 import { setCloudHost } from "./lib/cloudHost.ts";
 import { bindNotifications } from "./lib/notifications.ts";
@@ -107,7 +108,11 @@ void bindNotifications();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RecoveringErrorBoundary>
-      <App />
+      {import.meta.env.DEV && desktop?.accountRequest ? (
+        <AccountTestPanel request={desktop.accountRequest} />
+      ) : (
+        <App />
+      )}
     </RecoveringErrorBoundary>
   </StrictMode>,
 );

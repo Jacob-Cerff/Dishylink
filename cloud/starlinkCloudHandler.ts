@@ -10,6 +10,9 @@
 import { GrpcWebError, grpcWebUnaryCall } from "../core/grpcWeb";
 import type { DishConfigJson } from "../core/dishClient";
 import type { RouterClientUpdate } from "../core/routerClientUpdate";
+import { assertDishContext, type AccountInventory, type DishContext } from "../core/accountContext";
+import { object, readAccountInventory } from "./accountInventory";
+import { decodeRemoteTelemetry } from "../core/remoteTelemetry";
 import {
   meshNameRefusal,
   normalizeNameservers,
@@ -47,6 +50,37 @@ export class SessionExpiredError extends Error {
     super("Starlink session expired or not connected");
     this.name = "SessionExpiredError";
   }
+}
+
+export class CloudReadError extends Error {
+  readonly retryAfterMs?: number;
+  constructor(
+    readonly status: number,
+    retryAfter: string | null = null,
+    readonly credentialScoped = false,
+  ) {
+    super(`Cloud read HTTP ${status}`);
+    const delay =
+      retryAfter && /^\d+$/.test(retryAfter)
+        ? Number(retryAfter) * 1000
+        : retryAfter
+          ? Date.parse(retryAfter) - Date.now()
+          : NaN;
+    if (Number.isFinite(delay) && delay >= 0) this.retryAfterMs = delay;
+  }
+}
+export function cloudReadFailure(error: unknown): CloudResult {
+  if (error instanceof SessionExpiredError) return NOT_CONNECTED;
+  if (error instanceof CloudReadError)
+    return {
+      status: error.status === 429 ? 429 : error.status >= 500 ? error.status : 502,
+      body: {
+        error: error.status === 429 ? "rate_limited" : "account_read_failed",
+        ...(error.credentialScoped ? { credentialScoped: true } : {}),
+        ...(error.retryAfterMs === undefined ? {} : { retryAfterMs: error.retryAfterMs }),
+      },
+    };
+  return { status: 502, body: { error: "account_read_failed" } };
 }
 
 /** A failure raised by the write itself rather than by anything leading up to it.
@@ -161,6 +195,14 @@ function num(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Preserve unknown numeric codes; names/severity remain user-verification work. */
+function activeAlertCodes(value: unknown): number[] | undefined {
+  return Array.isArray(value) &&
+    value.every((code) => typeof code === "number" && Number.isSafeInteger(code) && code >= 0)
+    ? [...value]
+    : undefined;
+}
+
 /** Per-device live stats from the telemetry feed, keyed by full DeviceId
  *  ("ut<uuid>" for dishes, "Router-<hex>" for routers). The service-line detail
  *  carries none of this (software/hardware version, uptime, clients, hops,
@@ -190,6 +232,7 @@ export function deviceTelemetryFrom(telemetry: unknown): Record<string, Record<s
         uptimeS: num(get("Uptime")),
         obstructionPct: num(get("ObstructionPercentTime")),
         signalQuality: num(get("SignalQuality")),
+        activeAlerts: activeAlertCodes(get("ActiveAlerts")),
       };
     } else if (kind === "r") {
       out[id] = {
@@ -202,6 +245,7 @@ export function deviceTelemetryFrom(telemetry: unknown): Record<string, Record<s
         hops: num(get("WifiHopsFromController")),
         isRepeater: get("WifiIsRepeater") === true,
         isBypassed: get("WifiIsBypassed") === true,
+        activeAlerts: activeAlertCodes(get("ActiveAlerts")),
       };
     }
   }
@@ -282,6 +326,12 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
         forgetSession();
         throw new SessionExpiredError();
       }
+      if (!authResponse.ok)
+        throw new CloudReadError(
+          authResponse.status,
+          authResponse.headers.get("retry-after"),
+          true,
+        );
       const setCookie = authResponse.headers.get("set-cookie") ?? "";
       const match = setCookie.match(/Starlink\.Com\.Access\.V1=([^;]+)/);
       const withoutOld = base.replace(/Starlink\.Com\.Access\.V1=[^;]*;?/g, "").trim();
@@ -332,7 +382,8 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
       signal: abortSignal,
     });
     if (response.status === 401 || response.status === 403) throw new SessionExpiredError();
-    if (!response.ok) throw new Error(`GET ${path} → HTTP ${response.status}`);
+    if (!response.ok)
+      throw new CloudReadError(response.status, response.headers.get("retry-after"));
     return response.json();
   }
 
@@ -349,7 +400,8 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
       signal: abortSignal,
     });
     if (response.status === 401 || response.status === 403) throw new SessionExpiredError();
-    if (!response.ok) throw new Error(`POST ${path} → HTTP ${response.status}`);
+    if (!response.ok)
+      throw new CloudReadError(response.status, response.headers.get("retry-after"));
     return response.json();
   }
 
@@ -357,7 +409,8 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
   async function fetchIdentity(cookie: string): Promise<unknown> {
     const response = await doFetch(AUTH_URL, { headers: { cookie, accept: "application/json" } });
     if (response.status === 401 || response.status === 403) throw new SessionExpiredError();
-    if (!response.ok) throw new Error(`auth/user → HTTP ${response.status}`);
+    if (!response.ok)
+      throw new CloudReadError(response.status, response.headers.get("retry-after"), true);
     return response.json();
   }
 
@@ -865,5 +918,99 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
     return applyRouterConfigUpdate(update);
   }
 
-  return { handle, connect, disconnect, updateClient, updateDishConfig, updateRouterConfig };
+  /** New multi-login reads never use the legacy primary-service/controller caches. */
+  async function accountTelemetry(accountId: string): Promise<CloudResult> {
+    try {
+      const body = await withFreshCookie(async (cookie) =>
+        decodeRemoteTelemetry(
+          await apiPost("/device-data/cache/v1/telemetry", cookie, { accountNumber: accountId }),
+        ),
+      );
+      return { status: 200, body };
+    } catch (error) {
+      return cloudReadFailure(error);
+    }
+  }
+
+  async function inventory(): Promise<AccountInventory> {
+    return withFreshCookie(async (cookie) =>
+      readAccountInventory((path) => apiGet(path, cookie), await fetchIdentity(cookie)),
+    );
+  }
+
+  async function readScoped(
+    route: string,
+    context: DishContext,
+    knownInventory: AccountInventory,
+  ): Promise<CloudResult> {
+    if (!["/cloud/account", "/cloud/telemetry", "/cloud/usage"].includes(route))
+      return { status: 400, body: { error: "unsupported_account_read" } };
+    let terminal;
+    try {
+      terminal = assertDishContext(context, context.credentialId, knownInventory);
+    } catch {
+      return { status: 403, body: { error: "invalid_account_target" } };
+    }
+    const selectedDevices = new Set([
+      context.terminalId.startsWith("ut") ? context.terminalId : `ut${context.terminalId}`,
+      ...terminal.routerIds.map((id) => (id.startsWith("Router-") ? id : `Router-${id}`)),
+    ]);
+    try {
+      const body = await withFreshCookie(async (cookie) => {
+        if (route === "/cloud/usage")
+          return apiGet(
+            `/telemetryagg/v1/data-usage/account/${context.accountId}/service-line/${context.serviceLineNumber}/annotated`,
+            cookie,
+          );
+        const telemetry = await apiPost("/device-data/cache/v1/telemetry", cookie, {
+          accountNumber: context.accountId,
+        });
+        const deviceTelemetry = Object.fromEntries(
+          Object.entries(deviceTelemetryFrom(telemetry)).filter(([id]) => selectedDevices.has(id)),
+        );
+        if (route === "/cloud/telemetry") return { deviceTelemetry };
+        const detail = object(
+          object(
+            await apiGet(`/webagg/v2/accounts/service-line/${context.serviceLineNumber}`, cookie),
+          ).content,
+        );
+        if (
+          detail.serviceLineNumber !== context.serviceLineNumber ||
+          (detail.accountReferenceId !== undefined &&
+            detail.accountReferenceId !== context.accountId) ||
+          !Array.isArray(detail.userTerminals) ||
+          !detail.userTerminals.some((value) => object(value).userTerminalId === context.terminalId)
+        )
+          throw new Error("Inventory changed");
+        return {
+          serviceLine: {
+            content: {
+              ...detail,
+              userTerminals: detail.userTerminals.filter(
+                (value) => object(value).userTerminalId === context.terminalId,
+              ),
+            },
+          },
+          deviceTelemetry,
+        };
+      });
+      return { status: 200, body };
+    } catch (error) {
+      if (error instanceof SessionExpiredError) return NOT_CONNECTED;
+      // Do not forward upstream exceptions: they can contain credentials or identifiers.
+      return { status: 502, body: { error: "account_read_failed" } };
+    }
+  }
+
+  return {
+    handle,
+    connect,
+    disconnect,
+    inventory,
+    readScoped,
+    accountTelemetry,
+    updateClient,
+    updateDishConfig,
+    updateRouterConfig,
+  };
 }

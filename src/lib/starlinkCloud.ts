@@ -78,6 +78,8 @@ export interface DishTelemetry {
   uptimeS?: number;
   obstructionPct?: number;
   signalQuality?: number;
+  /** Raw portal codes; absent means unavailable, not an empty alert list. */
+  activeAlerts?: number[];
 }
 
 export interface RouterTelemetry {
@@ -90,6 +92,7 @@ export interface RouterTelemetry {
   hops?: number;
   isRepeater?: boolean;
   isBypassed?: boolean;
+  activeAlerts?: number[];
 }
 
 export type DeviceTelemetry = DishTelemetry | RouterTelemetry;
