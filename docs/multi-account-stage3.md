@@ -15,6 +15,8 @@ Remote screens use host snapshots, not the legacy single-login renderer caches. 
 - Manual refresh uses the host's five-minute cooldown and longer backoff. A countdown disables refresh while blocked. The account refresh interval can be set to 2, 4, 6, 12 or 24 hours. Successful expected-offline notes do not alter status, tracking or the Starlink subscription.
 - Breadcrumbs return to Services and Accounts. Opening an existing main window from the tray returns to Accounts. New windows start at Accounts because no route is persisted.
 
+Independent review found four issues, all fixed with failing-then-passing regression tests: Electron event forwarding from the new window-entry subscription; Back/Forward divergence across local/remote views; loss of an unsaved expected-offline note during unrelated inventory updates; and missing obstruction percentage in the Services overview. Drafts now survive reloads under their full credential/account/service/terminal key, while invalid telemetry is still cleared immediately. Local navigation follows the fragment, including the existing satellite view; directly closing that view returns to the Windows Local monitoring route.
+
 ## Boundaries and decisions
 
 The explicit **Local monitoring** entry opens the original dashboard independently of account selection. Remote screens never mount it, its LAN hooks or speed tests. Legacy cache migration, verified LAN/source/control binding and taskbar throughput labeling remain **Stage 4**. Existing background recorder behavior is retained.
@@ -23,9 +25,11 @@ Remote active alerts and alignment are excluded. Usage history and billing remai
 
 New screen messages use the existing translation catalogs and placeholder checks. New account-screen copy currently uses English wording in all five catalogs; translation review remains release work. Existing localized screens retain their translations.
 
+The review retained account-level snapshot provenance when another authorized login collected it; current host membership checks still protect every target. Host scheduling/encryption/pagination remain Stage 1/2 responsibilities, with long-duration scenarios retained for Stage 5.
+
 ## Verification
 
-Behavior tests cover concurrent query readers, delayed responses, invalidated credentials/membership, mismatched targets, cache failures, nine accounts/50 services (including a 12-service account), navigation and direct routes, multiple terminals, cancellation/import failure, disconnected cache access, unknown/stale/overdue/error states, percentage scale, holiday notes, manual cooldown, keyboard activation and a 450px window without horizontal overflow. Browser screenshots were inspected at desktop and narrow sizes.
+Behavior tests cover concurrent query readers, delayed responses, invalidated credentials/membership, mismatched targets, cache failures, nine accounts/50 services (including a 12-service account), navigation and direct routes, multiple terminals, cancellation/import failure, disconnected cache access, unknown/stale/overdue/error states, percentage scale, holiday notes, manual cooldown, keyboard activation and a 450px window without horizontal overflow. Browser screenshots were inspected at desktop and narrow sizes. The final suite passes **146 files / 1,488 tests**, including 18 account-UI browser tests, six scoped-query/route tests and one real-preload event-boundary test. Typecheck, lint, desktop build, extension typecheck/build and changed-file formatting pass. Existing bundler compatibility/chunk-size warnings remain.
 
 Live validation with the user's saved accounts and a packaged Windows build remains Stage 5 acceptance; synthetic tests do not claim those runs occurred. Existing Stage 2 scheduling/lifecycle tests continue to apply.
 

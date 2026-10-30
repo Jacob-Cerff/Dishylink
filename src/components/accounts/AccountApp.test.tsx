@@ -417,3 +417,84 @@ describe("keyboard and layout", () => {
     await page.viewport(1100, 850);
   });
 });
+
+describe("review regressions", () => {
+  it("preserves a holiday draft across an unrelated background inventory change", async () => {
+    window.location.hash = "#/accounts/ACC-A/services/SL-A";
+    let notify!: (event: import("../../lib/accountClient").AccountChange) => void;
+    let lists = 0;
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const base = transport([session("A"), session("B")]);
+    const client = new AccountClient(async (r) => {
+      if (r.kind === "list" && ++lists > 1) await pending;
+      return base(r);
+    });
+    render(
+      <AccountApp
+        client={client}
+        localView={null}
+        subscribe={(listener) => {
+          notify = listener;
+          return () => {};
+        }}
+      />,
+    );
+    await expect.element(page.getByText("5%", { exact: true })).toBeInTheDocument();
+    await page.getByLabelText("Reason (optional)").fill("Unsaved holiday plan");
+    notify({ kind: "sessions" });
+    await expect.element(page.getByRole("status")).toHaveTextContent("Loading cached information");
+    release();
+    await expect
+      .element(page.getByLabelText("Reason (optional)"))
+      .toHaveValue("Unsaved holiday plan");
+  });
+  it("presents obstruction percentages beside terminal status in the services overview", async () => {
+    window.location.hash = "#/accounts/ACC-A";
+    render(<AccountApp client={new AccountClient(transport([session("A")]))} localView={null} />);
+    await expect.element(page.getByText("Obstructions: 5%", { exact: true })).toBeInTheDocument();
+  });
+  it("follows Back and Forward across service, local dashboard, satellite and Accounts", async () => {
+    const { useHashRoute } = await import("../../hooks/useHashRoute");
+    function LocalFixture() {
+      const [sky, setSky] = useHashRoute("satellite", "#/local");
+      return (
+        <div>
+          <p>{sky ? "Local satellite" : "Local dashboard"}</p>
+          <button onClick={() => setSky(!sky)}>{sky ? "Close sky" : "Open sky"}</button>
+        </div>
+      );
+    }
+    window.location.hash = "#/accounts/ACC-A/services/SL-A";
+    render(
+      <AccountApp
+        client={new AccountClient(transport([session("A")]))}
+        localView={<LocalFixture />}
+      />,
+    );
+    await expect
+      .element(page.getByRole("heading", { name: "Site A", exact: true }))
+      .toBeInTheDocument();
+    await page.getByRole("button", { name: "Local monitoring", exact: true }).click();
+    await expect.element(page.getByText("Local dashboard", { exact: true })).toBeInTheDocument();
+    window.history.back();
+    await expect
+      .element(page.getByRole("heading", { name: "Site A", exact: true }))
+      .toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("Local dashboard");
+    window.history.forward();
+    await expect.element(page.getByText("Local dashboard", { exact: true })).toBeInTheDocument();
+    await page.getByRole("button", { name: "Open sky", exact: true }).click();
+    await expect.element(page.getByText("Local satellite", { exact: true })).toBeInTheDocument();
+    await page.getByRole("button", { name: "Close sky", exact: true }).click();
+    await expect.element(page.getByText("Local dashboard", { exact: true })).toBeInTheDocument();
+    await page.getByRole("button", { name: "Accounts", exact: true }).click();
+    await expect
+      .element(page.getByRole("heading", { name: "Accounts", exact: true }))
+      .toBeInTheDocument();
+    window.history.back();
+    await expect.element(page.getByText("Local dashboard", { exact: true })).toBeInTheDocument();
+  });
+});

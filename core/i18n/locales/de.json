@@ -1452,6 +1452,7 @@
     "hours_one": "Every {{count}} hour",
     "hours_other": "Every {{count}} hours",
     "obstructions": "Obstructions",
+    "obstructionSummary": "Obstructions: {{value}}",
     "fieldUnavailable": "This field is not available in the current remote reading.",
     "obstructionHelp": "Reported obstruction percentage. The measurement window and whether this represents time or sky area are not confirmed.",
     "terminal": "Terminal information",

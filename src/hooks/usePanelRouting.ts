@@ -31,7 +31,10 @@ export function usePanelRouting() {
       openRequest = null;
     };
   }, []);
-  const [skyViewOpen, setSkyViewOpen] = useHashRoute("satellite");
+  const [skyViewOpen, setSkyViewOpen] = useHashRoute(
+    "satellite",
+    window.dishlink?.accountRequest ? "#/local" : "",
+  );
 
   // The sky view and the panels are mutually exclusive: it covers the viewport,
   // and a panel left open renders on top of it.

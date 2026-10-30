@@ -62,9 +62,10 @@ contextBridge.exposeInMainWorld("dishlink", {
           };
         },
         onOpenAccounts: (listener: () => void): (() => void) => {
-          ipcRenderer.on(ACCOUNT_HOME_CHANNEL, listener);
+          const receive = () => listener();
+          ipcRenderer.on(ACCOUNT_HOME_CHANNEL, receive);
           return () => {
-            ipcRenderer.removeListener(ACCOUNT_HOME_CHANNEL, listener);
+            ipcRenderer.removeListener(ACCOUNT_HOME_CHANNEL, receive);
           };
         },
         accountRequest: (request: AccountRequest): Promise<{ status: number; body: unknown }> =>

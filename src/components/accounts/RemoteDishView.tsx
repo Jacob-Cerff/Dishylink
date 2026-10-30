@@ -56,11 +56,15 @@ export function RemoteDishView({
   context,
   now,
   connected,
+  draft,
+  onDraftChange,
 }: {
   client: AccountClient;
   context: DishContext;
   now: number;
   connected: boolean;
+  draft?: { enabled: boolean; reason: string };
+  onDraftChange: (draft: { enabled: boolean; reason: string }) => void;
 }) {
   const { t } = useTranslation();
   const time = useRemoteTime();
@@ -70,7 +74,6 @@ export function RemoteDishView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [blockedUntil, setBlockedUntil] = useState(0);
-  const [draft, setDraft] = useState<{ enabled: boolean; reason: string }>();
   const enabled = draft?.enabled ?? data?.expectation.enabled ?? false;
   const reason = draft?.reason ?? data?.expectation.reason ?? "";
   const refresh = data?.refresh;
@@ -250,7 +253,7 @@ export function RemoteDishView({
             <input
               type='checkbox'
               checked={enabled}
-              onChange={(e) => setDraft({ enabled: e.target.checked, reason })}
+              onChange={(e) => onDraftChange({ enabled: e.target.checked, reason })}
             />
             {t("accounts.expectedOffline")}
           </label>
@@ -260,7 +263,7 @@ export function RemoteDishView({
               className='w-full rounded-lg border border-border bg-background p-3'
               value={reason}
               maxLength={200}
-              onChange={(e) => setDraft({ enabled, reason: e.target.value })}
+              onChange={(e) => onDraftChange({ enabled, reason: e.target.value })}
             />
           </label>
           <Button variant='outline' disabled={busy || !data} type='submit'>

@@ -1,5 +1,7 @@
 # Stage 1: Windows multi-account foundation
 
+**Stage 3 follow-up — 2026-10-30:** Windows now uses the production Accounts → Services → Service information screens in development and packaged builds. The development test panel is no longer the startup UI. See [Stage 3 implementation notes](multi-account-stage3.md) for the current controls, scope and verification. Earlier statements below describe the stage at the time it was implemented.
+
 Stage 1 backend acceptance is now complete for the two tested accounts. Stage 2 scheduling/storage has also been implemented; see [Stage 2 notes](multi-account-stage2.md) for the current cache/manual-refresh API and development controls. The historical verification record below describes Stage 1, not a packaged/full-fleet release.
 
 Stage 1 adds a host-side account API, independent encrypted saved sign-ins, complete service-list pagination, and explicitly targeted read requests. The intended deployment uses separate Starlink email logins. The full account-list and dish-selection screens belong to Stage 3; production UI still uses its original single-account flow. Windows development runs now open a read-only account test panel for the user-authorized live verification.

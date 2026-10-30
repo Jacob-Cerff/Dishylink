@@ -1,5 +1,7 @@
 # Stage 2: Scheduled Windows remote snapshots
 
+**Stage 3 follow-up — 2026-10-30:** Windows now uses the production Accounts → Services → Service information screens in development and packaged builds. The development test panel is no longer the startup UI. See [Stage 3 implementation notes](multi-account-stage3.md) for the current controls, scope and verification. Earlier statements below describe the stage at the time it was implemented.
+
 Stage 1's remaining sign-in/inventory acceptance items are satisfied for the two tested accounts: independent native logins, complete expected inventory, remote readings matching the portal/app and saved-session reads after relaunch. Stage 2 builds on that foundation in the same isolated worktree. The production Accounts → Services → Service information screens remain Stage 3.
 
 ## Collection and data contract

@@ -23,7 +23,8 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
   const inventory = useAccountQuery(client.inventory);
   const sessions = inventory.data ?? [];
   const { route, navigate } = useAccountRoute();
-  const [local, setLocal] = useState(route.kind === "local");
+  const local = route.kind === "local";
+  const [drafts, setDrafts] = useState<Record<string, { enabled: boolean; reason: string }>>({});
   const [connection, setConnection] = useState<CredentialSummary | "new">();
   const [disconnect, setDisconnect] = useState<CredentialSummary>();
   const [busy, setBusy] = useState(false);
@@ -42,7 +43,6 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
   useEffect(
     () =>
       onOpenAccounts?.(() => {
-        setLocal(false);
         navigate({ kind: "accounts" });
       }),
     [onOpenAccounts, navigate],
@@ -103,6 +103,15 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
           ? service.terminals[0]
           : undefined
       : undefined;
+  const draftKey =
+    selected && service && terminal
+      ? JSON.stringify([
+          selected.credentialId,
+          accountId,
+          service.serviceLineNumber,
+          terminal.terminalId,
+        ])
+      : "";
   if (local)
     return (
       <>
@@ -110,7 +119,6 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
           <Button
             variant='outline'
             onClick={() => {
-              setLocal(false);
               navigate({ kind: "accounts" });
             }}
           >
@@ -132,7 +140,6 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
           <Button
             variant='outline'
             onClick={() => {
-              setLocal(true);
               navigate({ kind: "local" });
             }}
           >
@@ -274,6 +281,10 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
                     <RemoteDishView
                       key={`${selected.credentialId}/${accountId}/${service.serviceLineNumber}/${terminal.terminalId}`}
                       client={client}
+                      draft={drafts[draftKey]}
+                      onDraftChange={(draft) =>
+                        setDrafts((previous) => ({ ...previous, [draftKey]: draft }))
+                      }
                       now={now}
                       connected={selected.state === "connected" && selected.tracking}
                       context={{

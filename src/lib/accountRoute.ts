@@ -7,7 +7,7 @@ export type AccountRoute =
   | { kind: "invalid" };
 export function parseAccountRoute(hash: string): AccountRoute {
   if (!hash || hash === "#" || hash === "#/accounts") return { kind: "accounts" };
-  if (hash === "#/local") return { kind: "local" };
+  if (hash === "#/local" || hash === "#satellite") return { kind: "local" };
   const parts = hash.split("/");
   if (parts[0] !== "#" || parts[1] !== "accounts" || !validAccountId(parts[2]))
     return { kind: "invalid" };

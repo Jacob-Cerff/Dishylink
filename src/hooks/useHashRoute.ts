@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useHashRoute(name: string): [boolean, (open: boolean) => void] {
+export function useHashRoute(name: string, closedHash = ""): [boolean, (open: boolean) => void] {
   const target = `#${name}`;
   const [open, setOpen] = useState(() => window.location.hash === target);
   /**
@@ -49,11 +49,11 @@ export function useHashRoute(name: string): [boolean, (open: boolean) => void] {
         pushedRef.current = false;
         history.back(); // hashchange flips the state
       } else {
-        window.location.hash = "";
+        window.location.hash = closedHash;
         setOpen(false);
       }
     },
-    [name, target],
+    [name, target, closedHash],
   );
 
   return [open, setRouteOpen];

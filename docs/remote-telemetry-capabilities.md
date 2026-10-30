@@ -1,5 +1,7 @@
 # Remote telemetry capabilities
 
+**Stage 3 presentation update — 2026-10-30:** Windows remote screens now display the existing verified snapshot fields, last-reported status, obstruction percentage, source/observation/fetch times and refresh health. They use Stage 2 cache/scheduler operations; no new remote source or measurement mapping was added. Subscription state remains unavailable. Alerts and alignment remain excluded remotely. The new UI has automated browser coverage; live-account UI and packaged acceptance remain Stage 5. See [Stage 3 notes](multi-account-stage3.md).
+
 ## Current decisions — 2026-10-28
 
 **Stage 0 closure update:** User confirms that both tested accounts list all expected items and their telemetry agrees with the Starlink portal/app. Current fleet is approximately 50 services across nine separate logins, with about ten services maximum per account understood by the user (not a verified universal API limit). User reports two-week cookie lifetime, subject to Starlink changes. Stage 0 is complete for the agreed scope. Actual natural expiry/reconnection and full-nine-login acceptance remain Stage 5 tests, not verified facts. Earlier open-check statements below are superseded by this closure disposition.

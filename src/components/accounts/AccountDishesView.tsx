@@ -80,10 +80,22 @@ function ServiceDish({
 }) {
   const { t } = useTranslation();
   const state = useAccountQuery(client.remote(context));
+  const obstruction = state.data?.snapshot?.dish?.obstructionFraction;
   return (
     <div className='flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3'>
       <span className='break-all font-mono text-xs'>{context.terminalId}</span>
       <ReportedStatus data={state.data} now={now} />
+      <span className='text-xs text-muted-foreground'>
+        {t("accounts.obstructionSummary", {
+          value:
+            obstruction === undefined
+              ? t("accounts.unavailable")
+              : new Intl.NumberFormat(undefined, {
+                  style: "percent",
+                  maximumFractionDigits: 2,
+                }).format(obstruction),
+        })}
+      </span>
       {state.error && (
         <p className='w-full text-sm text-muted-foreground'>{t("accounts.cacheFailed")}</p>
       )}
