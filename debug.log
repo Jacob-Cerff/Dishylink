@@ -1,0 +1,12 @@
+[1030/094935.534:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/095135.381:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/095308.466:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/095324.759:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/095817.774:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/100212.024:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/100800.665:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/101822.770:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/101926.408:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/102214.659:ERROR:net\dns\dns_config_service.cc:273] DNS config watch failed.
+[1030/115416.212:ERROR:components\viz\service\display\display.cc:272] Frame latency is negative: -0.044 ms
+[1030/115417.052:ERROR:components\viz\service\display\display.cc:272] Frame latency is negative: -0.261 ms
