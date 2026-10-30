@@ -31,7 +31,7 @@ import {
 import { startCloud, handleCloudRequest, signIn } from "./cloud";
 import { startAccounts, stopAccounts, handleAccountRequest } from "./accounts";
 import { trustedAccountFrame } from "./accountController";
-import { ACCOUNT_REQUEST_CHANNEL } from "./ipc";
+import { ACCOUNT_REQUEST_CHANNEL, ACCOUNT_HOME_CHANNEL } from "./ipc";
 import { hostIdentity, rememberSelfDevice } from "./selfDevice";
 import { normalizeIpAddress, type RouterAddress } from "../core/ipAddress";
 import { ROUTER_LAN_ADDRESS } from "../core/dishClient";
@@ -286,6 +286,7 @@ function createWindow(): void {
 /** Bring the window forward, building it if the last one was closed. */
 function showWindow(): void {
   if (mainWindow) {
+    if (process.platform === "win32") mainWindow.webContents.send(ACCOUNT_HOME_CHANNEL);
     mainWindow.show();
     mainWindow.focus();
   } else {

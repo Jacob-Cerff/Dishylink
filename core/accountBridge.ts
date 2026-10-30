@@ -13,3 +13,6 @@ export type AccountRequest =
   | { kind: "remote-cache"; context: DishContext }
   | { kind: "remote-expectation"; context: DishContext; enabled: boolean; reason?: string }
   | { kind: "read"; credentialId: string; route: ScopedCloudRoute; context: DishContext };
+
+/** Payload-free session changes; snapshots carry public account identity only. */
+export type AccountChange = { kind: "sessions" } | { kind: "snapshots"; accountId: string };

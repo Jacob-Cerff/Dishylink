@@ -45,3 +45,6 @@ landing/.dev.vars
 # Unanchored: astro writes this cache into whichever directory it is run from,
 # not only the project root.
 .astro/
+
+# Isolated implementation execution artifacts.
+.superpowers/

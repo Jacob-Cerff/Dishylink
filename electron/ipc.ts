@@ -28,3 +28,7 @@ export const UPDATE_STATE_CHANNEL = "update-state";
 
 /** Explicit Windows multi-account operations; stored secrets are never returned. */
 export const ACCOUNT_REQUEST_CHANNEL = "account-request";
+
+/** Multi-account cache invalidation and explicit window-entry navigation. */
+export const ACCOUNT_CHANGED_CHANNEL = "accounts-changed";
+export const ACCOUNT_HOME_CHANNEL = "accounts-home";

@@ -4,7 +4,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
-import { AccountTestPanel } from "./components/dev/AccountTestPanel.tsx";
+import { AccountApp } from "./components/accounts/AccountApp.tsx";
+import { AccountClient } from "./lib/accountClient.ts";
 import { RecoveringErrorBoundary } from "./components/shared/RecoveringErrorBoundary.tsx";
 import { setCloudHost } from "./lib/cloudHost.ts";
 import { bindNotifications } from "./lib/notifications.ts";
@@ -105,11 +106,20 @@ if (!desktop && !import.meta.env.DEV) {
 // round trip at all — it reads its own storage here, before render.
 void bindNotifications();
 
+const accountClient = desktop?.accountRequest
+  ? new AccountClient(desktop.accountRequest)
+  : undefined;
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RecoveringErrorBoundary>
-      {import.meta.env.DEV && desktop?.accountRequest ? (
-        <AccountTestPanel request={desktop.accountRequest} />
+      {accountClient ? (
+        <AccountApp
+          client={accountClient}
+          subscribe={desktop?.onAccountsChanged}
+          onOpenAccounts={desktop?.onOpenAccounts}
+          localView={<App />}
+        />
       ) : (
         <App />
       )}

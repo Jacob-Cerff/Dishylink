@@ -9,6 +9,8 @@ import { AccountController } from "./accountController";
 import { EncryptedAccountStore } from "./accountStore";
 import { runAccountLogin } from "./accountLogin";
 import { RemoteRefresh } from "../cloud/remoteRefresh";
+import { ACCOUNT_CHANGED_CHANNEL } from "./ipc";
+import type { AccountChange } from "../core/accountBridge";
 import { RemoteSnapshotStore } from "./remoteSnapshotStore";
 import {
   runRemoteMonitoring,
@@ -18,9 +20,12 @@ import {
 
 let controller: AccountController | null = null;
 let monitor: RemoteRefresh | null = null;
+let stopRegistry: (() => void) | null = null;
 let stopMonitoring: (() => void) | null = null;
 
 export function stopAccounts(): void {
+  stopRegistry?.();
+  stopRegistry = null;
   stopMonitoring?.();
   stopMonitoring = null;
   monitor = null;
@@ -42,10 +47,25 @@ export function startAccounts(parent: () => BrowserWindow | undefined): void {
             })
           : resilientFetch,
     });
+    const publish = (change: AccountChange) => {
+      const window = parent();
+      if (window && !window.isDestroyed()) window.webContents.send(ACCOUNT_CHANGED_CHANNEL, change);
+    };
+    stopRegistry = registry.subscribe(() => publish({ kind: "sessions" }));
     try {
+      const store = new RemoteSnapshotStore(join(app.getPath("userData"), "remote-v1"));
       monitor = new RemoteRefresh({
         registry,
-        store: new RemoteSnapshotStore(join(app.getPath("userData"), "remote-v1")),
+        store: {
+          get: (accountId, credentialId) => store.get(accountId, credentialId),
+          save: (record) => {
+            store.save(record);
+            publish({ kind: "snapshots", accountId: record.accountId });
+          },
+          prune: () => store.prune(),
+          credentialBackoff: (id) => store.credentialBackoff(id),
+          saveCredentialBackoff: (id, until) => store.saveCredentialBackoff(id, until),
+        },
       });
       stopMonitoring = runRemoteMonitoring(monitor, (listener) => registry.subscribe(listener), {
         every: (listener) => {

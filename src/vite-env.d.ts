@@ -22,6 +22,10 @@ interface Window {
     // and notifications match.
     setLocale?: (locale: string) => void;
     signIn: () => Promise<{ ok: boolean; message?: string }>;
+    onAccountsChanged?: (
+      listener: (event: import("../core/accountBridge").AccountChange) => void,
+    ) => () => void;
+    onOpenAccounts?: (listener: () => void) => () => void;
     accountRequest?: (
       request: import("../core/accountBridge").AccountRequest,
     ) => Promise<{ status: number; body: unknown }>;

@@ -8,7 +8,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { NotificationState } from "../core/alertNotification";
 import type { HostNetworkIdentity } from "../core/hostNetworkIdentity";
 import type { RouterAddress } from "../core/ipAddress";
-import type { AccountRequest } from "../core/accountBridge";
+import type { AccountRequest, AccountChange } from "../core/accountBridge";
 import {
   NOTIFICATION_STATE_CHANNEL,
   MENUBAR_THROUGHPUT_CHANNEL,
@@ -16,6 +16,8 @@ import {
   TRAY_ICON_STYLE_CHANNEL,
   UPDATE_STATE_CHANNEL,
   ACCOUNT_REQUEST_CHANNEL,
+  ACCOUNT_CHANGED_CHANNEL,
+  ACCOUNT_HOME_CHANNEL,
 } from "./ipc";
 import type { UpdateState } from "./updater";
 
@@ -52,6 +54,19 @@ contextBridge.exposeInMainWorld("dishlink", {
   signIn: (): Promise<{ ok: boolean; message?: string }> => ipcRenderer.invoke("starlink-signin"),
   ...(process.platform === "win32"
     ? {
+        onAccountsChanged: (listener: (event: AccountChange) => void): (() => void) => {
+          const receive = (_event: unknown, change: AccountChange) => listener(change);
+          ipcRenderer.on(ACCOUNT_CHANGED_CHANNEL, receive);
+          return () => {
+            ipcRenderer.removeListener(ACCOUNT_CHANGED_CHANNEL, receive);
+          };
+        },
+        onOpenAccounts: (listener: () => void): (() => void) => {
+          ipcRenderer.on(ACCOUNT_HOME_CHANNEL, listener);
+          return () => {
+            ipcRenderer.removeListener(ACCOUNT_HOME_CHANNEL, listener);
+          };
+        },
         accountRequest: (request: AccountRequest): Promise<{ status: number; body: unknown }> =>
           ipcRenderer.invoke(ACCOUNT_REQUEST_CHANNEL, request),
       }
