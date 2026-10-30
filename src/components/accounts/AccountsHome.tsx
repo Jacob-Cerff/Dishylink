@@ -10,6 +10,7 @@ export function AccountsHome({
   client,
   onAccount,
   onConnect,
+  onEdit,
   onDisconnect,
   onTracking,
   busy,
@@ -18,6 +19,7 @@ export function AccountsHome({
   client: AccountClient;
   onAccount: (id: string) => void;
   onConnect: (session?: CredentialSummary) => void;
+  onEdit: (session: CredentialSummary) => void;
   onDisconnect: (session: CredentialSummary) => void;
   onTracking: (session: CredentialSummary) => void;
   busy: boolean;
@@ -70,9 +72,11 @@ export function AccountsHome({
               key={account.accountId}
               aria-label={t("accounts.open", { name: account.name ?? account.accountId })}
               onClick={() => onAccount(account.accountId)}
-              className='flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-5 text-start hover:bg-fill-hover focus-visible:outline-2 focus-visible:outline-ring'
+              className='group flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-5 text-start transition-colors hover:border-foreground/30 hover:bg-fill-raised focus-visible:bg-fill-raised focus-visible:outline-2 focus-visible:outline-ring'
             >
-              <span className='text-lg font-semibold'>{account.name ?? account.accountId}</span>
+              <span className='text-lg font-semibold decoration-2 underline-offset-4 group-hover:underline group-focus-visible:underline'>
+                {account.name ?? account.accountId}
+              </span>
               <span className='break-all font-mono text-xs text-muted-foreground'>
                 {account.accountId}
               </span>
@@ -107,6 +111,14 @@ export function AccountsHome({
               </p>
             </div>
             <div className='flex flex-wrap gap-2'>
+              <Button
+                variant='outline'
+                disabled={busy}
+                aria-label={t("accounts.editNameFor", { name: session.label })}
+                onClick={() => onEdit(session)}
+              >
+                {t("accounts.editName")}
+              </Button>
               <Button variant='outline' disabled={busy} onClick={() => onConnect(session)}>
                 {t("accounts.reconnect")}
               </Button>

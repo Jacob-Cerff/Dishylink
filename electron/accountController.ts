@@ -76,8 +76,12 @@ export class AccountController {
           "Starlink sign-in";
         return this.signIn(id ?? randomUUID(), label);
       }
-      if (!["disconnect", "tracking", "refresh", "read"].includes(String(request.kind)) || !id)
+      if (
+        !["rename", "disconnect", "tracking", "refresh", "read"].includes(String(request.kind)) ||
+        !id
+      )
         return refusal(400, "invalid_account_request");
+      if (request.kind === "rename") return registry.rename(id, request.label);
       if (request.kind === "disconnect") {
         await this.cancelSignIn(id);
         const reply = registry.disconnect(id);

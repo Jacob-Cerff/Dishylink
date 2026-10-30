@@ -223,3 +223,51 @@ describe("isolated saved logins", () => {
     expect(registry.list().sessions[0]).toMatchObject({ state: "connected", tracking: false });
   });
 });
+
+describe("saved connection labels", () => {
+  it("renames only the selected saved connection, survives restart and preserves its active session", async () => {
+    const { store, records } = memoryStore();
+    const net = network();
+    const registry = new AccountRegistry({ store, fetch: net.fetcher });
+    await registry.importSession({
+      credentialId: "login-a",
+      label: "First",
+      cookie: "Starlink.Com.Sso=a",
+    });
+    await registry.importSession({
+      credentialId: "login-b",
+      label: "Second",
+      cookie: "Starlink.Com.Sso=b",
+    });
+    const before = structuredClone(records.get("login-a")!);
+    const lease = registry.sessionToken("login-a");
+    const identity = registry.sessionIdentity("login-a");
+    net.requests.length = 0;
+    expect(registry.rename("login-a", "  Office connection  ").status).toBe(200);
+    expect(
+      new AccountRegistry({ store, fetch: net.fetcher }).list().sessions.map((s) => s.label),
+    ).toEqual(["Office connection", "Second"]);
+    expect(records.get("login-a")).toEqual({ ...before, label: "Office connection" });
+    expect(registry.sessionToken("login-a")).toBe(lease);
+    expect(registry.sessionIdentity("login-a")).toBe(identity);
+    expect(net.requests).toEqual([]);
+  });
+  it("retains the previous label when saving the new name fails", async () => {
+    const { store } = memoryStore();
+    const net = network();
+    const registry = new AccountRegistry({ store, fetch: net.fetcher });
+    await registry.importSession({
+      credentialId: "login-a",
+      label: "Original",
+      cookie: "Starlink.Com.Sso=a",
+    });
+    store.save = () => {
+      throw new Error("private storage error");
+    };
+    expect(registry.rename("login-a", "New name")).toEqual({
+      status: 500,
+      body: { error: "session_store_failed" },
+    });
+    expect(registry.list().sessions[0].label).toBe("Original");
+  });
+});

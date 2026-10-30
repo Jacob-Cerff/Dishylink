@@ -31,7 +31,7 @@ The review retained account-level snapshot provenance when another authorized lo
 
 Behavior tests cover concurrent query readers, delayed responses, invalidated credentials/membership, mismatched targets, cache failures, nine accounts/50 services (including a 12-service account), navigation and direct routes, multiple terminals, cancellation/import failure, disconnected cache access, unknown/stale/overdue/error states, percentage scale, holiday notes, manual cooldown, keyboard activation and a 450px window without horizontal overflow. Browser screenshots were inspected at desktop and narrow sizes. The final suite passes **146 files / 1,488 tests**, including 18 account-UI browser tests, six scoped-query/route tests and one real-preload event-boundary test. Typecheck, lint, desktop build, extension typecheck/build and changed-file formatting pass. Existing bundler compatibility/chunk-size warnings remain.
 
-Live validation with the user's saved accounts and a packaged Windows build remains Stage 5 acceptance; synthetic tests do not claim those runs occurred. Existing Stage 2 scheduling/lifecycle tests continue to apply.
+The user subsequently confirmed that the Stage 3 UI looks and works well on 2026-10-30. That confirmation does not replace Stage 5's full-fleet, long-duration and packaged Windows acceptance; synthetic tests do not claim those runs occurred. Existing Stage 2 scheduling/lifecycle tests continue to apply.
 
 To try this branch:
 
@@ -42,3 +42,13 @@ npm.cmd run dev:electron:win
 ```
 
 Quit any older Dishylink development instance first because Electron enforces a single running instance. This worktree reuses installed dependencies through a `node_modules` junction. Do not recursively delete through that junction.
+
+## Connection editing and hover follow-up — 2026-10-30
+
+Saved connections now include **Edit name**, opening a prefilled local-name form with Save and Cancel. The host validates the label, persists it through the existing encrypted store and updates the public list. Renaming supports disconnected connections, preserves the credential/cookie, inventory and tracking state, and does not rotate scheduler/session identity or request another sign-in. Failed saves preserve the previous saved name and leave the edit form available to retry.
+
+Account cards keep their shaded hover effect with a brighter surface and border; the account name underlines when any part of the card is hovered. Keyboard focus gets the same name underline and surface emphasis. Dark-theme appearance was inspected in a real-browser screenshot.
+
+Six added behavior tests cover rename persistence/session preservation, failed storage, disconnected rename, invalid input/unknown targets, UI save and UI failure/cancel. No extra packages or Starlink writes.
+
+Follow-up verification: **146 files / 1,494 tests pass**, plus typecheck, lint, extension typecheck, desktop build and changed-file formatting.

@@ -498,3 +498,71 @@ describe("review regressions", () => {
     await expect.element(page.getByText("Local dashboard", { exact: true })).toBeInTheDocument();
   });
 });
+
+describe("connection editing and account hover", () => {
+  it("edits a saved connection name without reconnecting and updates the displayed label", async () => {
+    const saved = [session("A"), session("B")];
+    const calls: AccountRequest[] = [];
+    const client = new AccountClient(
+      transport(saved, async (r) => {
+        calls.push(r);
+        if (r.kind === "rename") {
+          const s = saved.find((s) => s.credentialId === r.credentialId)!;
+          s.label = r.label;
+        }
+        return { status: 200, body: r.kind === "remote-cache" ? cache(r) : {} };
+      }),
+    );
+    render(<AccountApp client={client} localView={null} />);
+    await page.getByRole("button", { name: "Edit name for Login B", exact: true }).click();
+    await expect
+      .element(page.getByRole("textbox", { name: "Connection name", exact: true }))
+      .toHaveValue("Login B");
+    await page
+      .getByRole("textbox", { name: "Connection name", exact: true })
+      .fill("Regional office");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect
+      .element(page.getByRole("heading", { name: "Regional office", exact: true }))
+      .toBeInTheDocument();
+    expect(calls.filter((r) => r.kind === "rename")).toEqual([
+      { kind: "rename", credentialId: "login-B", label: "Regional office" },
+    ]);
+    expect(
+      calls.some(
+        (r) =>
+          r.kind === "sign-in" ||
+          r.kind === "import" ||
+          r.kind === "disconnect" ||
+          r.kind === "remote-refresh",
+      ),
+    ).toBe(false);
+    await expect
+      .element(page.getByRole("heading", { name: "Login A", exact: true }))
+      .toBeInTheDocument();
+    await page.getByRole("button", { name: "Open Account B", exact: true }).hover();
+    await page.screenshot({ path: "../../../.superpowers/sdd/connection-edit/account-hover.png" });
+  });
+  it("keeps the edit form and original name after a save failure and allows cancellation", async () => {
+    const client = new AccountClient(
+      transport([session("A")], async (r) => ({
+        status: r.kind === "rename" ? 500 : 200,
+        body: r.kind === "remote-cache" ? cache(r) : {},
+      })),
+    );
+    render(<AccountApp client={client} localView={null} />);
+    await page.getByRole("button", { name: "Edit name for Login A", exact: true }).click();
+    await page.getByRole("textbox", { name: "Connection name", exact: true }).fill("   ");
+    await expect.element(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await page.getByRole("textbox", { name: "Connection name", exact: true }).fill("Unsaved name");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect.element(page.getByRole("alert")).toHaveTextContent("name could not be saved");
+    await expect
+      .element(page.getByRole("textbox", { name: "Connection name", exact: true }))
+      .toHaveValue("Unsaved name");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect
+      .element(page.getByRole("heading", { name: "Login A", exact: true }))
+      .toBeInTheDocument();
+  });
+});

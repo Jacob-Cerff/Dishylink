@@ -287,7 +287,7 @@ Accounts show connection state, service counts and last successful collection. S
 
 Independent review found event-object forwarding at the new preload callback, local/remote history divergence, unsaved note loss during unrelated inventory changes and missing overview obstruction. All four were reproduced by failing behavior tests and fixed in one pass. The whole suite passes **146 files / 1,488 tests**; typecheck, lint, desktop build, extension typecheck/build and changed-file formatting pass. Browser checks cover the nine-account/50-service shape (including a 12-service account), concurrent/late/invalidated reads, cancelled sign-in/failed import, disconnected cache access, stale/unknown/overdue states, cooldown, holiday notes, keyboard activation, Back/Forward including local satellite routing and a 450px layout. Screenshots were inspected. No new packages, cloud routes, LAN polls or remote device writes.
 
-**Acceptance boundary:** Stage 3 code and automated acceptance are complete. The user has not yet tried these new production screens with real accounts; Stage 5 retains live-account UI and packaged Windows acceptance. Legacy recorder/alerts/taskbar source binding remains Stage 4, remote alerts remain L8, and usage/billing remain Stage 6.
+**Acceptance boundary:** Stage 3 code and automated acceptance are complete. The user subsequently confirmed these production screens look and work well on 2026-10-30; Stage 5 retains full-fleet, long-duration and packaged Windows acceptance. Legacy recorder/alerts/taskbar source binding remains Stage 4, remote alerts remain L8, and usage/billing remain Stage 6.
 
 ## Stage 4 — Integrate live LAN views and migrate existing state
 
@@ -376,3 +376,5 @@ The implementation tasks above must explicitly exercise these risks:
 | 2026-10-28 | User authorized committing and merging the tested Stage 1/2 work locally into master | Preserve pre-existing lockfile edits and incorporated earlier plan changes; no remote push requested |
 
 | 2026-10-30 | Implemented and independently reviewed Stage 3 account-first Windows screens in an isolated branch | 1,488 tests and desktop/extension checks pass; four reviewed regressions fixed; live UI/packaged acceptance remains Stage 5 |
+
+| 2026-10-30 | User confirmed Stage 3 UI works well; added saved-connection name editing and clearer account hover | Local encrypted label update preserves sessions and scheduling; whole-card hover underlines the name and strengthens shading/border |

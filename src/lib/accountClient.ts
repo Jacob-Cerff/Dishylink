@@ -167,7 +167,7 @@ export class AccountClient {
   }
   async mutate(input: AccountRequest) {
     const reply = await this.request(input);
-    if (["sign-in", "import", "disconnect", "tracking"].includes(input.kind))
+    if (["sign-in", "import", "rename", "disconnect", "tracking"].includes(input.kind))
       this.invalidate({ kind: "sessions" });
     else if ("accountId" in input)
       this.invalidate({ kind: "snapshots", accountId: input.accountId });

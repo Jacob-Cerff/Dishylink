@@ -218,6 +218,30 @@ export class AccountRegistry {
     }
   }
 
+  rename(id: string, label: unknown): CloudResult {
+    const entry = this.entries.get(id);
+    if (!entry) return result(404, "unknown_session");
+    if (
+      typeof label !== "string" ||
+      !label.trim() ||
+      label.length > 100 ||
+      Array.from(label).some(
+        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+      )
+    )
+      return result(400, "invalid_label");
+    const name = label.trim();
+    if (entry.label === name) return { status: 200, body: { ok: true } };
+    try {
+      this.store.save({ ...this.saved(entry), label: name });
+      entry.label = name;
+      this.changed();
+      return { status: 200, body: { ok: true } };
+    } catch {
+      return result(500, "session_store_failed");
+    }
+  }
+
   setTracking(id: string, tracking: boolean): CloudResult {
     const entry = this.entries.get(id);
     if (!entry) return result(404, "unknown_session");

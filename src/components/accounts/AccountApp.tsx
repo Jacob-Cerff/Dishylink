@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dia
 import { AccountsHome } from "./AccountsHome";
 import { AccountDishesView } from "./AccountDishesView";
 import { AccountConnectionDialog } from "./AccountConnectionDialog";
+import { AccountNameDialog } from "./AccountNameDialog";
 import { RemoteDishView } from "./RemoteDishView";
 interface Props {
   client: AccountClient;
@@ -26,6 +27,7 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
   const local = route.kind === "local";
   const [drafts, setDrafts] = useState<Record<string, { enabled: boolean; reason: string }>>({});
   const [connection, setConnection] = useState<CredentialSummary | "new">();
+  const [editing, setEditing] = useState<CredentialSummary>();
   const [disconnect, setDisconnect] = useState<CredentialSummary>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -192,6 +194,7 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
             busy={busy}
             onAccount={(accountId) => navigate({ kind: "account", accountId })}
             onConnect={(session) => setConnection(session ?? "new")}
+            onEdit={setEditing}
             onDisconnect={setDisconnect}
             onTracking={(s) => void changeTracking(s)}
           />
@@ -317,6 +320,13 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
           onClose={() => setConnection(undefined)}
         />
       )}{" "}
+      {editing && (
+        <AccountNameDialog
+          client={client}
+          session={editing}
+          onClose={() => setEditing(undefined)}
+        />
+      )}
       {disconnect && (
         <Dialog
           open

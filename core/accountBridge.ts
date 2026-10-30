@@ -5,6 +5,7 @@ export type AccountRequest =
   | { kind: "list" }
   | { kind: "sign-in"; credentialId?: string; label?: string }
   | { kind: "import"; credentialId?: string; label: string; cookie: string }
+  | { kind: "rename"; credentialId: string; label: string }
   | { kind: "disconnect"; credentialId: string }
   | { kind: "tracking"; credentialId: string; enabled: boolean }
   | { kind: "refresh"; credentialId: string }

@@ -174,3 +174,33 @@ describe("account IPC sender validation", () => {
     expect(trustedAccountFrame(url, expected, main, top)).toBe(allowed);
   });
 });
+
+describe("connection name operation", () => {
+  it("allows a disconnected login to be renamed without signing in or clearing its partition", async () => {
+    const { controller, registry, cleared } = setup();
+    const added = await controller.handle({ kind: "sign-in", label: "First" });
+    const credentialId = (added.body as { credentialId: string }).credentialId;
+    await controller.handle({ kind: "disconnect", credentialId });
+    const partitionsBefore = [...cleared];
+    expect(
+      (await controller.handle({ kind: "rename", credentialId, label: "New connection name" }))
+        .status,
+    ).toBe(200);
+    expect(registry.list().sessions[0]).toMatchObject({
+      label: "New connection name",
+      state: "disconnected",
+    });
+    expect(cleared).toEqual(partitionsBefore);
+  });
+  it("rejects malformed or unknown rename requests without changing the saved name", async () => {
+    const { controller, registry } = setup();
+    const added = await controller.handle({ kind: "sign-in", label: "Original" });
+    const credentialId = (added.body as { credentialId: string }).credentialId;
+    for (const label of ["", "   ", "a".repeat(101), "bad\nname", null, 15])
+      expect((await controller.handle({ kind: "rename", credentialId, label })).status).toBe(400);
+    expect(
+      (await controller.handle({ kind: "rename", credentialId: "unknown", label: "Valid" })).status,
+    ).toBe(404);
+    expect(registry.list().sessions[0].label).toBe("Original");
+  });
+});
