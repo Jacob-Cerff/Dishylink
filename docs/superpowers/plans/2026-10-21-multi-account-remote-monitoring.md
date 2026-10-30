@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or, if explicitly selected by the user, superpowers:subagent-driven-development to implement this plan task by task. Track progress with the checkboxes and stable task IDs below. Read the design brief and global constraints before executing any stage.
 
-**Status:** Stages 0–2 are complete for their agreed backend/current-fleet scope. Stage 3 account-first Windows navigation is implemented with independent review and 1,488 passing tests as of 2026-10-30. It remains in isolated branch `feature/account-navigation-stage3` for UI review/integration. Stage 4 local source/control binding and migration, and Stage 5 live full-fleet/lifecycle/packaged acceptance, remain open.
+**Status:** Stages 0–2 are complete for their agreed backend/current-fleet scope. Stage 3 account-first Windows navigation is implemented with independent review and 1,488 passing tests as of 2026-10-30. The user confirmed the UI and authorized local integration into master on 2026-10-30. Stage 4 local source/control binding and migration, and Stage 5 live full-fleet/lifecycle/packaged acceptance, remain open.
 
 **Planning-only revision — 2026-10-27:** User priorities below supersede the earlier proposed reduced detail scope. They authorize plan updates only, not implementation of these additions. Essential remote status, alerts and alignment sources required verification at that point; the 2026-10-28 decisions below now supersede the remote alignment and units requirements.
 
@@ -380,3 +380,5 @@ The implementation tasks above must explicitly exercise these risks:
 | 2026-10-30 | User confirmed Stage 3 UI works well; added saved-connection name editing and clearer account hover | Local encrypted label update preserves sessions and scheduling; whole-card hover underlines the name and strengthens shading/border |
 
 | 2026-10-30 | Added remembered A–Z/Z–A sorting to Accounts and Saved connections | Sorts displayed names naturally without changing credential selection, scheduling or triggering cloud refreshes |
+
+| 2026-10-30 | User authorized merging Stage 3 and its editing/sorting follow-ups locally into master | Local integration only; no remote push requested; verify the merged checkout and retain any active development worktree |
