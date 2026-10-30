@@ -52,3 +52,13 @@ Account cards keep their shaded hover effect with a brighter surface and border;
 Six added behavior tests cover rename persistence/session preservation, failed storage, disconnected rename, invalid input/unknown targets, UI save and UI failure/cancel. No extra packages or Starlink writes.
 
 Follow-up verification: **146 files / 1,494 tests pass**, plus typecheck, lint, extension typecheck, desktop build and changed-file formatting.
+
+## Account sorting follow-up — 2026-10-30
+
+Accounts home now has a shared **Sort by** control for **Name A–Z** (default) and **Name Z–A**, remembered on this installation. Each list uses its displayed name: Accounts use the account name or visible account ID when unnamed; Saved connections use their editable connection label. Matching is case-insensitive and numeric names sort naturally (Site 2 before Site 10), with stable identity tie-breakers for equal names.
+
+This sorts copies for presentation. The saved registry, account membership, preferred credential selection, background scheduling and service-list order are unchanged. Changing sort never initiates a cloud refresh. An unrecognized preference falls back to A–Z. “Recently added” was not added because existing saved records have no reliable creation timestamp.
+
+Four new behavior tests cover ascending/descending natural ordering, unchanged source order, deterministic duplicate-name ordering, both rendered lists, persisted selection across remount, invalid preference fallback and unnamed-account IDs. Desktop appearance was inspected in a real-browser screenshot.
+
+Sorting follow-up verification: **147 files / 1,498 tests pass**, plus typecheck, lint, desktop build and changed-file formatting.

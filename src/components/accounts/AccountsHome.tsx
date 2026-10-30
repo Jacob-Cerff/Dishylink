@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { readAccountSort, writeAccountSort, sortByDisplayName } from "../../lib/accountSort";
 import { useTranslation } from "react-i18next";
 import type { CredentialSummary } from "../../../cloud/accountRegistry";
 import { mergeAccountAccess } from "@core/accountContext";
@@ -24,19 +26,51 @@ export function AccountsHome({
   onTracking: (session: CredentialSummary) => void;
   busy: boolean;
 }) {
-  const { t } = useTranslation();
-  const accounts = mergeAccountAccess(sessions);
+  const { t, i18n } = useTranslation();
+  const [sort, setSort] = useState(readAccountSort);
+  const accounts = sortByDisplayName(
+    mergeAccountAccess(sessions),
+    (account) => account.name?.trim() || account.accountId,
+    (account) => account.accountId,
+    sort,
+    i18n.language,
+  );
+  const orderedSessions = sortByDisplayName(
+    sessions,
+    (session) => session.label,
+    (session) => session.credentialId,
+    sort,
+    i18n.language,
+  );
   return (
     <>
-      <div className='flex items-center justify-between gap-4'>
+      <div className='flex flex-wrap items-center justify-between gap-4'>
         <div>
           <h1 className='text-3xl font-semibold'>{t("accounts.title")}</h1>
           <p className='mt-2 text-sm text-muted-foreground'>{t("accounts.intro")}</p>
         </div>
-        <Button disabled={busy} onClick={() => onConnect()}>
-          {t("accounts.add")}
-        </Button>
+        <div className='flex flex-wrap items-end gap-3'>
+          <label className='flex flex-col gap-1.5 text-xs text-muted-foreground'>
+            {t("accounts.sortBy")}
+            <select
+              className='rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground'
+              value={sort}
+              onChange={(event) => {
+                const next = event.target.value === "name-desc" ? "name-desc" : "name-asc";
+                setSort(next);
+                writeAccountSort(next);
+              }}
+            >
+              <option value='name-asc'>{t("accounts.sortAscending")}</option>
+              <option value='name-desc'>{t("accounts.sortDescending")}</option>
+            </select>
+          </label>
+          <Button disabled={busy} onClick={() => onConnect()}>
+            {t("accounts.add")}
+          </Button>
+        </div>
       </div>
+      <p className='text-xs text-muted-foreground'>{t("accounts.sortHelp")}</p>
       {accounts.length === 0 && (
         <p className='rounded-xl border border-border p-6 text-muted-foreground'>
           {t("accounts.empty")}
@@ -70,12 +104,12 @@ export function AccountsHome({
           return (
             <button
               key={account.accountId}
-              aria-label={t("accounts.open", { name: account.name ?? account.accountId })}
+              aria-label={t("accounts.open", { name: account.name?.trim() || account.accountId })}
               onClick={() => onAccount(account.accountId)}
               className='group flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-5 text-start transition-colors hover:border-foreground/30 hover:bg-fill-raised focus-visible:bg-fill-raised focus-visible:outline-2 focus-visible:outline-ring'
             >
               <span className='text-lg font-semibold decoration-2 underline-offset-4 group-hover:underline group-focus-visible:underline'>
-                {account.name ?? account.accountId}
+                {account.name?.trim() || account.accountId}
               </span>
               <span className='break-all font-mono text-xs text-muted-foreground'>
                 {account.accountId}
@@ -98,7 +132,7 @@ export function AccountsHome({
       </div>
       <section className='flex flex-col gap-4'>
         <h2 className='text-lg font-semibold'>{t("accounts.connections")}</h2>
-        {sessions.map((session) => (
+        {orderedSessions.map((session) => (
           <div
             key={session.credentialId}
             className='flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4'

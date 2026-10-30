@@ -566,3 +566,85 @@ describe("connection editing and account hover", () => {
       .toBeInTheDocument();
   });
 });
+
+describe("Accounts and Saved connections sort controls", () => {
+  it("defaults both lists to natural A–Z and reverses both with a remembered selection", async () => {
+    const storageKey = "dishylink-account-sort";
+    localStorage.removeItem(storageKey);
+    const s10 = session("10"),
+      s2 = session("2"),
+      sA = session("A");
+    s10.label = "Site 10";
+    s2.label = "site 2";
+    sA.label = "Alpha";
+    s10.inventory.accounts[0].name = "Site 10";
+    s2.inventory.accounts[0].name = "site 2";
+    sA.inventory.accounts[0].name = "Alpha";
+    const calls: AccountRequest[] = [];
+    const base = transport([s10, s2, sA]);
+    const client = new AccountClient(async (request) => {
+      calls.push(request);
+      return base(request);
+    });
+    const screen = await render(<AccountApp client={client} localView={null} />);
+    try {
+      await expect
+        .element(page.getByRole("button", { name: "Open Alpha", exact: true }))
+        .toBeInTheDocument();
+      const accountNames = () =>
+        Array.from(document.querySelectorAll('button[aria-label^="Open "]')).map((node) =>
+          node.getAttribute("aria-label"),
+        );
+      const connectionNames = () =>
+        Array.from(document.querySelectorAll("h3")).map((node) => node.textContent);
+      expect(accountNames()).toEqual(["Open Alpha", "Open site 2", "Open Site 10"]);
+      expect(connectionNames()).toEqual(["Alpha", "site 2", "Site 10"]);
+      await page.getByRole("combobox", { name: "Sort by", exact: true }).selectOptions("name-desc");
+      expect(accountNames()).toEqual(["Open Site 10", "Open site 2", "Open Alpha"]);
+      expect(connectionNames()).toEqual(["Site 10", "site 2", "Alpha"]);
+      await screen.unmount();
+      render(<AccountApp client={client} localView={null} />);
+      await expect
+        .element(page.getByRole("combobox", { name: "Sort by", exact: true }))
+        .toHaveValue("name-desc");
+      expect(connectionNames()).toEqual(["Site 10", "site 2", "Alpha"]);
+      expect(
+        calls.some(
+          (request) =>
+            request.kind === "read" ||
+            request.kind === "remote-refresh" ||
+            request.kind === "refresh",
+        ),
+      ).toBe(false);
+    } finally {
+      localStorage.removeItem(storageKey);
+    }
+  });
+  it("falls back to A–Z for a stale preference and sorts unnamed accounts by their visible ID", async () => {
+    const storageKey = "dishylink-account-sort";
+    localStorage.setItem(storageKey, "obsolete-value");
+    const a = session("10"),
+      b = session("2");
+    delete a.inventory.accounts[0].name;
+    delete b.inventory.accounts[0].name;
+    const screen = await render(
+      <AccountApp client={new AccountClient(transport([a, b]))} localView={null} />,
+    );
+    try {
+      await expect
+        .element(page.getByRole("button", { name: "Open ACC-2", exact: true }))
+        .toBeInTheDocument();
+      expect(
+        Array.from(document.querySelectorAll('button[aria-label^="Open "]')).map((node) =>
+          node.getAttribute("aria-label"),
+        ),
+      ).toEqual(["Open ACC-2", "Open ACC-10"]);
+      await expect
+        .element(page.getByRole("combobox", { name: "Sort by", exact: true }))
+        .toHaveValue("name-asc");
+    } finally {
+      await screen.unmount();
+      localStorage.removeItem(storageKey);
+    }
+  });
+});

@@ -378,3 +378,5 @@ The implementation tasks above must explicitly exercise these risks:
 | 2026-10-30 | Implemented and independently reviewed Stage 3 account-first Windows screens in an isolated branch | 1,488 tests and desktop/extension checks pass; four reviewed regressions fixed; live UI/packaged acceptance remains Stage 5 |
 
 | 2026-10-30 | User confirmed Stage 3 UI works well; added saved-connection name editing and clearer account hover | Local encrypted label update preserves sessions and scheduling; whole-card hover underlines the name and strengthens shading/border |
+
+| 2026-10-30 | Added remembered A–Z/Z–A sorting to Accounts and Saved connections | Sorts displayed names naturally without changing credential selection, scheduling or triggering cloud refreshes |
