@@ -1,6 +1,6 @@
 import { app, BrowserWindow, safeStorage, session, powerMonitor, net } from "electron";
 import { join } from "node:path";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { auditCloudReads } from "../cloud/capabilityAudit";
 import { AccountRegistry } from "../cloud/accountRegistry";
 import { resilientFetch } from "../cloud/resilientFetch";
@@ -8,6 +8,11 @@ import type { CloudResult } from "../cloud/starlinkCloudHandler";
 import { AccountController } from "./accountController";
 import { EncryptedAccountStore } from "./accountStore";
 import { runAccountLogin } from "./accountLogin";
+import {
+  migrateLegacyAccount,
+  LEGACY_CREDENTIAL_ID,
+  InvalidLegacySession,
+} from "./legacyAccountMigration";
 import { RemoteRefresh } from "../cloud/remoteRefresh";
 import { ACCOUNT_CHANGED_CHANNEL } from "./ipc";
 import type { AccountChange } from "../core/accountBridge";
@@ -18,6 +23,10 @@ import {
   restrictLiveAccountRead,
 } from "./remoteMonitoring";
 
+let accountRegistry: AccountRegistry | null = null;
+export function getAccountRegistry(): AccountRegistry | null {
+  return accountRegistry;
+}
 let controller: AccountController | null = null;
 let monitor: RemoteRefresh | null = null;
 let stopRegistry: (() => void) | null = null;
@@ -35,8 +44,12 @@ export function stopAccounts(): void {
 export function startAccounts(parent: () => BrowserWindow | undefined): void {
   stopAccounts();
   try {
+    const accountStore = new EncryptedAccountStore(
+      join(app.getPath("userData"), "accounts-v1"),
+      safeStorage,
+    );
     const registry = new AccountRegistry({
-      store: new EncryptedAccountStore(join(app.getPath("userData"), "accounts-v1"), safeStorage),
+      store: accountStore,
       fetch:
         !app.isPackaged && process.env.DISHYLINK_CAPABILITY_AUDIT_FILE
           ? auditCloudReads(resilientFetch, (report) => {
@@ -46,6 +59,46 @@ export function startAccounts(parent: () => BrowserWindow | undefined): void {
               );
             })
           : resilientFetch,
+    });
+    accountRegistry = registry;
+    const legacyFile = join(app.getPath("userData"), "starlink-session.bin");
+    const migrationFile = join(app.getPath("userData"), "legacy-account-migration-v1.json");
+    void migrateLegacyAccount({
+      registry,
+      readLegacy: () => {
+        if (!existsSync(legacyFile)) return null;
+        if (!safeStorage.isEncryptionAvailable()) throw new Error("Encryption unavailable");
+        const encrypted = readFileSync(legacyFile);
+        try {
+          return safeStorage.decryptString(encrypted);
+        } catch {
+          throw new InvalidLegacySession("Legacy session requires reconnection");
+        }
+      },
+      completed: () => {
+        if (!existsSync(migrationFile)) return false;
+        const marker = JSON.parse(readFileSync(migrationFile, "utf8"));
+        if (marker.version !== 1 || marker.credentialId !== LEGACY_CREDENTIAL_ID)
+          throw new Error("Invalid migration marker");
+        return marker.complete === true;
+      },
+      verified: () =>
+        accountStore
+          .load()
+          .some(
+            (record) =>
+              record.credentialId === LEGACY_CREDENTIAL_ID &&
+              record.state === "connected" &&
+              Boolean(record.cookie) &&
+              record.inventory.accounts.length > 0,
+          ),
+      markComplete: () => {
+        writeFileSync(
+          migrationFile + ".tmp",
+          JSON.stringify({ version: 1, credentialId: LEGACY_CREDENTIAL_ID, complete: true }),
+        );
+        renameSync(migrationFile + ".tmp", migrationFile);
+      },
     });
     const publish = (change: AccountChange) => {
       const window = parent();
@@ -168,6 +221,7 @@ export function startAccounts(parent: () => BrowserWindow | undefined): void {
   } catch {
     // A locked/unreadable credential store must not prevent local-only monitoring.
     controller = null;
+    accountRegistry = null;
   }
 }
 

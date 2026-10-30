@@ -206,7 +206,7 @@ export async function dispatchCloudRequest(
 
 /** Vite plugin: serves /cloud/* from the user's own starlink.com session, held in
  *  a local .starlink-cookie file. */
-export function starlinkCloudProxy(): Plugin {
+export function starlinkCloudProxy(options: { recorder?: boolean } = {}): Plugin {
   const cookieFile = resolve(
     process.env.STARLINK_COOKIE_FILE ?? resolve(process.cwd(), ".starlink-cookie"),
   );
@@ -216,7 +216,7 @@ export function starlinkCloudProxy(): Plugin {
     name: "starlink-cloud-proxy",
     async configureServer(server) {
       // Vitest stands up its own dev server, which must not claim the data directory.
-      if (!process.env.VITEST) {
+      if (!process.env.VITEST && options.recorder !== false) {
         process.env.HISTORIAN_EMBED = "1";
         try {
           const historian = await import("../collector/historian.mts");

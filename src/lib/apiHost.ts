@@ -20,8 +20,12 @@ const sameOriginFetch: ApiTransport = (path, init) => fetch(path, init);
 let transport: ApiTransport = sameOriginFetch;
 
 /** Called once by a host entry point, before the UI renders. */
-export function setApiHost(binding: { transport: ApiTransport }): void {
+export function setApiHost(binding: { transport: ApiTransport }): () => void {
+  const previous = transport;
   transport = binding.transport;
+  return () => {
+    if (transport === binding.transport) transport = previous;
+  };
 }
 
 export function apiRequest(path: string, init?: RequestInit): Promise<Response> {

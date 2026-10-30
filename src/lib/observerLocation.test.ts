@@ -24,6 +24,17 @@ const SITE = { latitudeDeg: 4.8172, longitudeDeg: 6.9679, altitudeM: 0 };
 beforeEach(() => store.clear());
 
 describe("the cleared flag", () => {
+  test("verified terminal locations never inherit legacy or other terminal coordinates", () => {
+    saveLocation(SITE);
+    expect(loadSavedLocation("dish-a")).toBeNull();
+    saveLocation(SITE, "dish-a");
+    expect(loadSavedLocation("dish-a")).toEqual(SITE);
+    expect(loadSavedLocation("dish-b")).toBeNull();
+    clearSavedLocation("dish-a");
+    expect(loadLocationCleared("dish-a")).toBe(true);
+    expect(loadLocationCleared("dish-b")).toBe(false);
+    expect(loadSavedLocation()).toEqual(SITE);
+  });
   // "Clear" means unset. An automatic source may fill in for someone who has
   // never chosen a location, but must never undo a deliberate clear — so the
   // two states have to stay tellable apart, both being "no saved location".

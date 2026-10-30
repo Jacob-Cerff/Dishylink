@@ -32,6 +32,7 @@ interface DishHost {
   /** What every client's calls cost on the wire. Set by hosts that reach the LAN
    *  boxes directly; hosts behind a proxy count at the proxy instead. */
   onBytes?: (bytes: GrpcWebCallBytes) => void;
+  fetch?: typeof fetch;
 }
 
 let dishHost: DishHost = {};
@@ -39,8 +40,12 @@ let dishHost: DishHost = {};
 /** Called once by a host entry point, before the UI renders. Leaving a box's URL
  *  unset keeps its default proxy path — for the extension that path 404s against
  *  its own origin, so an unconfigured box is simply never reached. */
-export function setDishHost(binding: DishHost): void {
+export function setDishHost(binding: DishHost): () => void {
+  const previous = dishHost;
   dishHost = binding;
+  return () => {
+    if (dishHost === binding) dishHost = previous;
+  };
 }
 
 /** The router's LAN address — the only one it answers on, which is what makes it
@@ -510,6 +515,7 @@ export class DishClient {
     private readonly requestSchema: DescMessage,
     private readonly responseSchema: DescMessage,
     private readonly registry: Registry,
+    private readonly callFetch?: typeof fetch,
   ) {}
 
   /**
@@ -540,7 +546,7 @@ export class DishClient {
     const hostDefault = target === "dish" ? dishHost.dishHandleUrl : dishHost.routerHandleUrl;
     const handleUrl =
       options.handleUrl ?? hostDefault ?? (target === "dish" ? DISH_HANDLE_URL : ROUTER_HANDLE_URL);
-    return new DishClient(handleUrl, requestSchema, responseSchema, registry);
+    return new DishClient(handleUrl, requestSchema, responseSchema, registry, dishHost.fetch);
   }
 
   private async call(
@@ -552,7 +558,7 @@ export class DishClient {
       this.handleUrl,
       encodeOneofRequest(fieldNumber, subMessageBytes),
       abortSignal,
-      { onBytes: this.onBytes ?? dishHost.onBytes },
+      { onBytes: this.onBytes ?? dishHost.onBytes, fetch: this.callFetch },
     );
     const responseMessage = fromBinary(this.responseSchema, responseBytes);
     return toJson(this.responseSchema, responseMessage, {
@@ -654,6 +660,11 @@ export class DishClient {
 
   /** Decode a Device.Response the host fetched through the cloud gateway. Pairs
    *  with `encodeRequest` for the reads that have no LAN path. */
+  decodeRequest(requestBytes: Uint8Array): Record<string, unknown> {
+    return toJson(this.requestSchema, fromBinary(this.requestSchema, requestBytes), {
+      registry: this.registry,
+    }) as Record<string, unknown>;
+  }
   decodeResponse(responseBytes: Uint8Array): DishResponseJson {
     return toJson(this.responseSchema, fromBinary(this.responseSchema, responseBytes), {
       registry: this.registry,

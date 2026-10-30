@@ -1,6 +1,7 @@
 // Router information and maintenance — the Router half of the settings panel.
 // Read-mostly by design: the one write here is a reboot.
 
+import { useLocalControls } from "../../lib/localControls";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Callout } from "@/components/ui/callout";
@@ -78,7 +79,8 @@ export function RouterSettingsTab({
   // The DNS and subnet writes have no local path, so the controls are disabled up
   // front rather than failing at the moment Save is pressed.
   const account = useCloudAccount(true);
-  const accountConnected = account.status === "ready";
+  const { writes } = useLocalControls();
+  const accountConnected = writes && account.status === "ready";
   // A store still on its first read says nothing either way, and the retry loop
   // keeps flicking it back through "loading", so the first answer is remembered.
   const [accountAnswered, setAccountAnswered] = useState(false);
@@ -239,7 +241,7 @@ export function RouterSettingsTab({
           routerAnswering={answering}
           dishPresence={routerPresence(dishStatus)}
           // A failed read is not an absent session, and bypass is what fails reads.
-          disabled={!accountAnswered || account.status === "not-connected"}
+          disabled={!writes || !accountAnswered || account.status === "not-connected"}
           accountAnswering={accountConnected}
           onReload={account.reload}
           onSave={async (enabled) => {

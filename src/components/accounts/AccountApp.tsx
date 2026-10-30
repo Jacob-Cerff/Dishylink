@@ -11,14 +11,25 @@ import { AccountsHome } from "./AccountsHome";
 import { AccountDishesView } from "./AccountDishesView";
 import { AccountConnectionDialog } from "./AccountConnectionDialog";
 import { AccountNameDialog } from "./AccountNameDialog";
-import { RemoteDishView } from "./RemoteDishView";
+import { SelectedDishView } from "./SelectedDishView";
+import { LocalDashboard } from "../local/LocalDashboard";
+import type { LocalHost } from "@core/localSource";
 interface Props {
   client: AccountClient;
   localView: ReactNode;
+  localHost?: LocalHost;
+  renderLocal?: (lease: string) => ReactNode;
   subscribe?: (listener: (event: AccountChange) => void) => () => void;
   onOpenAccounts?: (listener: () => void) => () => void;
 }
-export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Props) {
+export function AccountApp({
+  client,
+  localView,
+  subscribe,
+  onOpenAccounts,
+  localHost,
+  renderLocal,
+}: Props) {
   const { t } = useTranslation();
   const { cycleTheme } = useTheme();
   const inventory = useAccountQuery(client.inventory);
@@ -128,7 +139,11 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
           </Button>
           <span className='ml-3 text-xs text-muted-foreground'>{t("accounts.localLabel")}</span>
         </div>
-        {localView}
+        {localHost && renderLocal ? (
+          <LocalDashboard host={localHost} renderLocal={renderLocal} />
+        ) : (
+          localView
+        )}
       </>
     );
   return (
@@ -281,7 +296,9 @@ export function AccountApp({ client, localView, subscribe, onOpenAccounts }: Pro
                     </label>
                   )}
                   {terminal ? (
-                    <RemoteDishView
+                    <SelectedDishView
+                      localHost={localHost}
+                      renderLocal={renderLocal}
                       key={`${selected.credentialId}/${accountId}/${service.serviceLineNumber}/${terminal.terminalId}`}
                       client={client}
                       draft={drafts[draftKey]}

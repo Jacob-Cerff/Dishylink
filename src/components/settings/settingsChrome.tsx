@@ -2,6 +2,7 @@
 // from, the section label above a group, and the compact select styling that
 // keeps the controls in the app's language rather than the library's default.
 
+import { useLocalControls } from "../../lib/localControls";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { errorText } from "../../lib/errorText";
@@ -135,6 +136,8 @@ export function DangerAction({
   onRun: () => Promise<string>;
 }) {
   const { t } = useTranslation();
+  const { writes } = useLocalControls();
+  disabled = disabled || !writes;
   const [armed, setArmed] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -142,6 +145,7 @@ export function DangerAction({
   const armedRef = useScrollIntoViewWhen<HTMLDivElement>(armed);
 
   const run = async () => {
+    if (disabled) return;
     setBusy(true);
     try {
       setResult(await onRun());
@@ -196,7 +200,11 @@ export function DangerAction({
         ) : (
           <>
             {!slideLabel && (
-              <button className={actionButton("danger")} disabled={busy} onClick={() => void run()}>
+              <button
+                className={actionButton("danger")}
+                disabled={busy || disabled}
+                onClick={() => void run()}
+              >
                 {busy ? t("common.sending") : confirmLabel}
               </button>
             )}
@@ -235,7 +243,7 @@ export function DangerAction({
             <Button
               variant='destructive'
               className='cursor-pointer sm:min-w-28'
-              disabled={busy}
+              disabled={busy || disabled}
               onClick={() => void run()}
             >
               {busy ? t("common.sending") : confirmLabel}

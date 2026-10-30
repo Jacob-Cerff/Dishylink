@@ -30,8 +30,15 @@ import {
 } from "./collector";
 import { startCloud, handleCloudRequest, signIn } from "./cloud";
 import { startAccounts, stopAccounts, handleAccountRequest } from "./accounts";
+import {
+  startLocalMonitoring,
+  stopLocalMonitoring,
+  handleLocalRequest,
+  localViewVisible,
+  leaveLocalView,
+} from "./localMonitoring";
 import { trustedAccountFrame } from "./accountController";
-import { ACCOUNT_REQUEST_CHANNEL, ACCOUNT_HOME_CHANNEL } from "./ipc";
+import { ACCOUNT_REQUEST_CHANNEL, ACCOUNT_HOME_CHANNEL, LOCAL_REQUEST_CHANNEL } from "./ipc";
 import { hostIdentity, rememberSelfDevice } from "./selfDevice";
 import { normalizeIpAddress, type RouterAddress } from "../core/ipAddress";
 import { ROUTER_LAN_ADDRESS } from "../core/dishClient";
@@ -277,6 +284,7 @@ function createWindow(): void {
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
+    if (process.platform === "win32") leaveLocalView();
     lastRendererReportMs = 0;
   });
 
@@ -430,8 +438,9 @@ function applyTrayIcon(): void {
  *  title; Windows drives the floating widget. */
 function applyMenuBarThroughput(): void {
   if (!MENU_BAR_THROUGHPUT_SUPPORTED || tray === null) return;
-  const on = preferences().menuBarThroughput;
-  if (throughputItem !== null) throughputItem.checked = on;
+  const wanted = preferences().menuBarThroughput;
+  const on = wanted && (process.platform !== "win32" || localViewVisible());
+  if (throughputItem !== null) throughputItem.checked = wanted;
   if (hideIconItem !== null) hideIconItem.visible = on;
   applyTrayIcon();
   if (!on) {
@@ -458,6 +467,10 @@ function applyMenuBarThroughput(): void {
  *  stop, never fetch-then-discard, so the dish is never polled twice a second), then
  *  repaint — which ages a silent feed out to zero. */
 function throughputTick(): void {
+  if (process.platform === "win32") {
+    applyMenuBarThroughput();
+    return;
+  }
   const windowReporting = Date.now() - lastRendererReportMs < RENDERER_REPORT_STALE_MS;
   setLiveThroughputEnabled(!windowReporting);
   applyMenuBarThroughput();
@@ -465,7 +478,10 @@ function throughputTick(): void {
 
 /** Run the watchdog only while the readout is on; switching it off stops the poll too. */
 function updateThroughputWatchdog(): void {
-  const shouldRun = MENU_BAR_THROUGHPUT_SUPPORTED && preferences().menuBarThroughput;
+  const shouldRun =
+    MENU_BAR_THROUGHPUT_SUPPORTED &&
+    preferences().menuBarThroughput &&
+    (process.platform !== "win32" || localViewVisible());
   if (shouldRun && throughputStaleTimer === null) {
     throughputStaleTimer = setInterval(throughputTick, THROUGHPUT_TICK_MS);
   } else if (!shouldRun && throughputStaleTimer !== null) {
@@ -511,6 +527,18 @@ function configureLoginItem(): void {
  *  one handler gives the desktop app one session however it launched. */
 function registerCloudHandlers(): void {
   if (process.platform === "win32") {
+    ipcMain.handle(LOCAL_REQUEST_CHANNEL, (event, request: unknown) => {
+      if (
+        !trustedAccountFrame(
+          event.senderFrame?.url ?? "",
+          devServerUrl ?? APP_ENTRY_URL,
+          event.sender === mainWindow?.webContents,
+          event.senderFrame === event.sender.mainFrame,
+        )
+      )
+        return { status: 403, body: { error: "untrusted_local_sender" } };
+      return handleLocalRequest(request);
+    });
     ipcMain.handle(ACCOUNT_REQUEST_CHANNEL, (event, request: unknown) => {
       if (
         !trustedAccountFrame(
@@ -525,7 +553,9 @@ function registerCloudHandlers(): void {
     });
   }
   ipcMain.handle("starlink-signin", (event) =>
-    signIn(BrowserWindow.fromWebContents(event.sender) ?? undefined),
+    process.platform === "win32"
+      ? Promise.resolve({ ok: false, message: "local.manageAccounts" })
+      : signIn(BrowserWindow.fromWebContents(event.sender) ?? undefined),
   );
   ipcMain.handle(
     "cloud-request",
@@ -533,6 +563,8 @@ function registerCloudHandlers(): void {
       _event,
       { path, method = "GET", body }: { path: string; method?: string; body?: unknown },
     ) => {
+      if (process.platform === "win32")
+        return { status: 403, body: { error: "use_scoped_local_bridge" } };
       // This bridge is for the cloud routes alone; it must not reach anything else.
       if (!path.startsWith("/cloud/")) return { status: 404, body: { error: "not_found" } };
       // Routed on pathname alone; the origin only makes the URL absolute. Nothing dials it.
@@ -667,7 +699,7 @@ function registerHostHandlers(): void {
   ipcMain.handle("remember-self-device", (_event, clientId: unknown) => {
     if (typeof clientId === "number") rememberSelfDevice(clientId);
   });
-  ipcMain.handle("get-recorder-in-process", () => !devServerUrl);
+  ipcMain.handle("get-recorder-in-process", () => process.platform === "win32" || !devServerUrl);
   ipcMain.handle("get-router-address", () => routerAddress());
   // An address that does not parse is rejected here rather than stored and
   // silently ignored later, so the window can tell the user it was refused.
@@ -733,7 +765,20 @@ function registerMenuBarThroughputHandler(): void {
   }
   // The open window's live throughput — the same 1s dish reading the dashboard draws.
   // The timestamp marks the renderer as reporting, so the recorder's poll defers.
-  ipcMain.on("report-throughput", (_event, downBps: number, upBps: number) => {
+  ipcMain.on("report-throughput", (event, downBps: number, upBps: number, lease?: string) => {
+    if (
+      process.platform === "win32" &&
+      (typeof lease !== "string" ||
+        !localViewVisible(lease) ||
+        !trustedAccountFrame(
+          event.senderFrame?.url ?? "",
+          devServerUrl ?? APP_ENTRY_URL,
+          event.sender === mainWindow?.webContents,
+          event.senderFrame === event.sender.mainFrame,
+        ))
+    )
+      return;
+    if (!Number.isFinite(downBps) || !Number.isFinite(upBps) || downBps < 0 || upBps < 0) return;
     lastRendererReportMs = Date.now();
     if (!preferences().menuBarThroughput) return;
     latestThroughput = { downBps, upBps, atMs: lastRendererReportMs };
@@ -771,14 +816,55 @@ void app.whenReady().then(async () => {
   // Against a dev server, the session is the one that server's cloud proxy holds:
   // the recorder runs inside it, so a separate session here would leave a window
   // signed in and its own limits unenforceable.
-  startCloud(rendererRoot, devServerUrl ? resolve(process.cwd(), ".starlink-cookie") : undefined);
-  if (process.platform === "win32") startAccounts(() => mainWindow ?? undefined);
+  if (process.platform === "win32") {
+    startAccounts(() => mainWindow ?? undefined);
+    const localThrottle = new NotificationThrottle();
+    try {
+      startLocalMonitoring(
+        rendererRoot,
+        () => mainWindow ?? undefined,
+        () => {
+          latestThroughput = null;
+          lastRendererReportMs = 0;
+          applyMenuBarThroughput();
+          updateThroughputWatchdog();
+        },
+        (terminalId, transitions) => {
+          if (preferences().notifications !== true || (windowIsForeground() && localViewVisible()))
+            return;
+          for (const transition of transitions) {
+            const notification = describeTransition(transition, t);
+            if (
+              notification &&
+              localThrottle.allow(terminalId + ":" + notification.key, transition.atMs)
+            )
+              void postNotification(
+                "Local " + terminalId + " · " + notification.title,
+                notification.body,
+              ).catch(() => {});
+          }
+        },
+      );
+    } catch {
+      /* Remote monitoring remains available when local initialization fails. */
+    }
+  } else
+    startCloud(rendererRoot, devServerUrl ? resolve(process.cwd(), ".starlink-cookie") : undefined);
   registerCloudHandlers();
   // A dev server runs its own recorder; a second collector here would double-poll
   // the dish.
   if (!devServerUrl) {
-    await startCollector(rendererRoot);
-    handleAppProtocol(rendererRoot, handleApiRequest, handleCloudRequest);
+    if (process.platform === "win32") {
+      const scopedOnly = async () =>
+        new Response(JSON.stringify({ error: "use_scoped_local_bridge" }), {
+          status: 403,
+          headers: { "content-type": "application/json" },
+        });
+      handleAppProtocol(rendererRoot, scopedOnly, scopedOnly, scopedOnly);
+    } else {
+      await startCollector(rendererRoot);
+      handleAppProtocol(rendererRoot, handleApiRequest, handleCloudRequest);
+    }
     configureLoginItem();
     // Bound to the recorder just started, so alerting begins with the app, not a window.
     startAlertNotifications();
@@ -802,4 +888,7 @@ void app.whenReady().then(async () => {
 app.on("window-all-closed", () => {});
 
 app.on("activate", showWindow);
-app.on("before-quit", stopAccounts);
+app.on("before-quit", () => {
+  stopLocalMonitoring();
+  stopAccounts();
+});

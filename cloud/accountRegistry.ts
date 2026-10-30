@@ -11,6 +11,7 @@ import {
   SessionExpiredError,
   cloudReadFailure,
   type CloudResult,
+  type CloudHandlerOptions,
 } from "./starlinkCloudHandler";
 
 export type CredentialState = "connected" | "disconnected" | "reconnect-required";
@@ -125,6 +126,64 @@ export class AccountRegistry {
       state: entry.state,
       tracking: entry.tracking,
     };
+  }
+  /** Host-only recovery record; never replaces an existing login or stores plaintext. */
+  migrationPlaceholder(id: string, label: string): void {
+    if (!validAccountId(id) || this.entries.has(id)) return;
+    const record: SavedCredential = {
+      credentialId: id,
+      label,
+      cookie: null,
+      state: "reconnect-required",
+      tracking: true,
+      inventory: { accounts: [], services: [] },
+    };
+    this.store.save(record);
+    this.entries.set(id, this.entry(record));
+    this.changed();
+  }
+  scopedLocalHandler(
+    context: DishContext,
+    routerId: string,
+    valid: () => boolean,
+    callbacks: Pick<
+      CloudHandlerOptions,
+      | "prepareDeviceUpdate"
+      | "prepareDishConfigUpdate"
+      | "prepareRouterConfigUpdate"
+      | "readRouterSubnet"
+      | "readRouterClients"
+      | "readRouterConfig"
+    >,
+  ) {
+    const entry = this.entries.get(context.credentialId);
+    if (!entry) throw new Error("Unknown local credential");
+    const terminal = assertDishContext(context, entry.credentialId, entry.inventory);
+    const current = () => {
+      try {
+        return (
+          this.entries.get(entry.credentialId) === entry &&
+          entry.state === "connected" &&
+          valid() &&
+          assertDishContext(context, entry.credentialId, entry.inventory).routerIds.some(
+            (id) => (id.startsWith("Router-") ? id : "Router-" + id) === routerId,
+          )
+        );
+      } catch {
+        return false;
+      }
+    };
+    return createCloudHandler({
+      ...callbacks,
+      scope: { ...context, routerId, routerIds: [...terminal.routerIds], valid: current },
+      readCookie: () => (current() ? entry.cookie : null),
+      fetch: (input, init) =>
+        this.fetch(input, {
+          ...init,
+          signal: AbortSignal.any([entry.abort.signal, ...(init?.signal ? [init.signal] : [])]),
+        }),
+      retryDelayMs: 0,
+    });
   }
   has(id: string): boolean {
     return this.entries.has(id);

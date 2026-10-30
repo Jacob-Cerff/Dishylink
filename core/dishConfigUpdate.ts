@@ -25,9 +25,16 @@ function requestFor(targetId: string, changes: DishConfigJson): DishConfigReques
 export async function prepareDishConfigUpdate(
   dish: DishClient,
   changes: DishConfigJson,
+  expectedTerminalId?: string,
 ): Promise<Uint8Array> {
   const deviceInfo = await dish.getDeviceInfo(AbortSignal.timeout(5_000));
   const targetId = deviceInfo.id;
   if (!targetId) throw new LocalizedError("errors.dishIdentityUnavailable");
+  if (
+    expectedTerminalId &&
+    targetId !==
+      (expectedTerminalId.startsWith("ut") ? expectedTerminalId : "ut" + expectedTerminalId)
+  )
+    throw new Error("Local dish identity changed");
   return dish.encodeRequest(requestFor(targetId, changes));
 }

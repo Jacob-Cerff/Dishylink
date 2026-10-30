@@ -35,21 +35,34 @@ let clientPromise: Promise<DishClient> | null = null;
 // then the DISH poll can't get a socket either and the app reports a dish
 // outage that isn't happening.
 let inFlight = false;
+let generation = 0;
+export function resetRouterStatus(): void {
+  generation++;
+  if (timerId !== null) window.clearInterval(timerId);
+  timerId = null;
+  clientPromise = null;
+  inFlight = false;
+  snapshot = { status: null, reachable: null };
+  for (const listener of listeners) listener(snapshot);
+}
 
 async function poll(): Promise<void> {
   if (inFlight) return;
   inFlight = true;
+  const mine = generation;
   try {
     clientPromise ??= DishClient.load("router");
     const client = await clientPromise;
     const status = await client.getRouterStatus(AbortSignal.timeout(4_000));
+    if (mine !== generation) return;
     snapshot = { status, reachable: true };
   } catch {
+    if (mine !== generation) return;
     snapshot = { status: snapshot.status, reachable: false };
   } finally {
-    inFlight = false;
+    if (mine === generation) inFlight = false;
   }
-  for (const listener of listeners) listener(snapshot);
+  if (mine === generation) for (const listener of listeners) listener(snapshot);
 }
 
 /**

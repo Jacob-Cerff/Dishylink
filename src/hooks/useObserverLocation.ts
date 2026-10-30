@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAccountLocation } from "./useAccountLocation";
+import { useLocalControls } from "../lib/localControls";
 import {
   loadSavedLocation,
   loadLocationCleared,
@@ -19,11 +20,14 @@ interface DishCoordinates {
  * then the app's saved observer, then the account's location.
  */
 export function useObserverLocation(dishCoordinates: DishCoordinates | undefined) {
-  const [savedObserver, setSavedObserver] = useState<ObserverLocation | null>(loadSavedLocation);
+  const { terminalId } = useLocalControls();
+  const [savedObserver, setSavedObserver] = useState<ObserverLocation | null>(() =>
+    loadSavedLocation(terminalId),
+  );
   // Tracked apart from `savedObserver === null`, which cannot tell "never set
   // one" from "cleared it on purpose". Only the former may be filled in
   // automatically.
-  const [locationCleared, setLocationCleared] = useState(loadLocationCleared);
+  const [locationCleared, setLocationCleared] = useState(() => loadLocationCleared(terminalId));
   const hasDishGps = dishCoordinates?.lat !== undefined && dishCoordinates?.lon !== undefined;
   const accountObserver = useAccountLocation(
     !hasDishGps && savedObserver === null && !locationCleared,
@@ -40,12 +44,12 @@ export function useObserverLocation(dishCoordinates: DishCoordinates | undefined
   }, [dishCoordinates, savedObserver, accountObserver]);
 
   const onLocationSaved = (location: ObserverLocation) => {
-    saveLocation(location);
+    saveLocation(location, terminalId);
     setSavedObserver(location);
     setLocationCleared(false);
   };
   const onClearLocation = () => {
-    clearSavedLocation();
+    clearSavedLocation(terminalId);
     setSavedObserver(null);
     setLocationCleared(true);
   };

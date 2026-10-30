@@ -47,9 +47,20 @@ let transport: CloudTransport = sameOriginTransport;
 let hostSignIn: CloudSignIn | undefined;
 
 /** Called once by a host entry point, before the UI renders. */
-export function setCloudHost(binding: { transport?: CloudTransport; signIn?: CloudSignIn }): void {
+export function setCloudHost(binding: {
+  transport?: CloudTransport;
+  signIn?: CloudSignIn;
+}): () => void {
+  const previousTransport = transport,
+    previousSignIn = hostSignIn;
   if (binding.transport) transport = binding.transport;
   if (binding.signIn) hostSignIn = binding.signIn;
+  const installedTransport = transport,
+    installedSignIn = hostSignIn;
+  return () => {
+    if (transport === installedTransport) transport = previousTransport;
+    if (hostSignIn === installedSignIn) hostSignIn = previousSignIn;
+  };
 }
 
 export function cloudRequest(request: CloudRequest): Promise<CloudReply> {

@@ -13,6 +13,7 @@ import { setRecorderInProcess } from "./lib/apiHost.ts";
 import { setRouterAddressHost } from "./lib/routerAddressHost.ts";
 import { setSelfDeviceHost } from "./lib/selfDeviceHost.ts";
 import { setLocaleHost } from "./lib/locale.ts";
+import i18n from "./i18n";
 
 // The Electron preload exposes window.dishlink. Marking the root lets the desktop
 // build reserve space for the macOS traffic lights and make its top bar draggable,
@@ -106,6 +107,10 @@ if (!desktop && !import.meta.env.DEV) {
 // round trip at all — it reads its own storage here, before render.
 void bindNotifications();
 
+const localHost = desktop?.localRequest
+  ? { request: desktop.localRequest, subscribe: desktop.onLocalState }
+  : undefined;
+
 const accountClient = desktop?.accountRequest
   ? new AccountClient(desktop.accountRequest)
   : undefined;
@@ -118,7 +123,9 @@ createRoot(document.getElementById("root")!).render(
           client={accountClient}
           subscribe={desktop?.onAccountsChanged}
           onOpenAccounts={desktop?.onOpenAccounts}
-          localView={<App />}
+          localHost={localHost}
+          localView={<p className='p-6'>{i18n.t("local.unavailable")}</p>}
+          renderLocal={(lease) => <App localScope={lease} />}
         />
       ) : (
         <App />

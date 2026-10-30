@@ -202,6 +202,32 @@ A fresh desktop build opens with no history by design: it fills up as it runs.
 
 ### Desktop app (Mac, Windows)
 
+On the Windows multi-account build, Accounts opens first. To use a nearby
+dish, choose **Local monitoring**, then **Connect local dish**. This performs
+a bounded identity check; remote-only startup does not start LAN polling.
+Local recording continues while you browse remote services or close the window.
+Connecting again is explicit after restarting the application. A service whose
+terminal matches the verified local dish can show the original live dashboard;
+other services show remote snapshots. Local controls require a connected saved
+login whose service and router both match. Standalone local monitoring is read-only.
+
+New recordings and saved site coordinates are separated by terminal ID. The
+**Legacy local history** summary keeps older unlabelled desktop history unassigned;
+it does not copy old automation rules onto a newly discovered dish. Development
+history in a previous checkout stays in that checkout. The previous encrypted
+desktop session is validated and imported once; its original file is retained.
+Invalid sessions appear as requiring reconnection.
+
+Local readings without a device ID are saved after the next verified status
+reads, which normally take up to five seconds. Client-usage sampling may be
+less frequent as a result; this prevents a network switch from putting another
+site's readings into the current dish's history.
+
+The Windows throughput pill is shown only for the active verified local view.
+It is hidden while browsing remote services or with the window closed. Local
+background alert notifications identify their terminal. The extension and other
+platforms retain their existing single-session behavior.
+
 - Lives in the tray / menu bar and **keeps recording after its window is
   closed**; it quits only from the tray's Quit.
 - **Live throughput readout** — ↓/↑ rates in the macOS menu bar, or a draggable

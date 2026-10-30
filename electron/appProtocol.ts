@@ -196,11 +196,14 @@ export function handleAppProtocol(
   rendererRoot: string,
   apiHandler: (request: Request) => Promise<Response>,
   cloudHandler: (request: Request) => Promise<Response>,
+  lanHandler?: (request: Request) => Promise<Response>,
 ): void {
   protocol.handle(SCHEME, (request) => {
     const url = new URL(request.url);
     const { pathname, search } = url;
 
+    if (lanHandler && (pathname.startsWith("/dishy/") || pathname.startsWith("/router/")))
+      return lanHandler(request);
     if (pathname.startsWith("/dishy/")) {
       return proxy(request, DISH_ORIGIN + pathname.slice("/dishy".length) + search, true);
     }

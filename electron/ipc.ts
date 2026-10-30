@@ -32,3 +32,7 @@ export const ACCOUNT_REQUEST_CHANNEL = "account-request";
 /** Multi-account cache invalidation and explicit window-entry navigation. */
 export const ACCOUNT_CHANGED_CHANNEL = "accounts-changed";
 export const ACCOUNT_HOME_CHANNEL = "accounts-home";
+
+/** Windows scoped local monitoring; no raw IPC capability crosses preload. */
+export const LOCAL_REQUEST_CHANNEL = "local-request";
+export const LOCAL_STATE_CHANNEL = "local-state";

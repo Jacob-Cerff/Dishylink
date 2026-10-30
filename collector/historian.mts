@@ -12,6 +12,7 @@
 //
 // Run: npm run historian   (foreground; see collector/README for always-on setup)
 
+import { RecordingProofUnavailable, type RecordingCall } from "../core/recordingIdentity";
 import {
   closeSync,
   existsSync,
@@ -247,11 +248,21 @@ const OBSTRUCTION_TIMEOUT_MS = 10_000;
  * that should be unwritable. Decoding rides along because every caller did the
  * same three steps to get from bytes to JSON.
  */
+let recordingBlocked = false;
+let recordingObserver:
+  ((json: Record<string, unknown>, call: RecordingCall) => void | Promise<void>) | undefined;
+export function setRecordingObserver(
+  observer: (json: Record<string, unknown>, call: RecordingCall) => void | Promise<void>,
+): void {
+  recordingObserver = observer;
+}
 async function deviceCall(
   url: string,
   fieldNumber: number,
   timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<Record<string, unknown>> {
+  if (recordingBlocked) throw new Error("Recording identity changed");
+  const startedAt = performance.now();
   const bytes = await grpcWebUnaryCall(
     url,
     requestBytes(fieldNumber),
@@ -261,10 +272,23 @@ async function deviceCall(
         recordSelfTraffic({ receivedBytes: received, sentBytes: sent }),
     },
   );
-  return toJson(responseSchema, fromBinary(responseSchema, bytes), { registry }) as Record<
+  const json = toJson(responseSchema, fromBinary(responseSchema, bytes), { registry }) as Record<
     string,
     unknown
   >;
+  try {
+    await recordingObserver?.(json, {
+      target: url === DISH_URL ? "dish" : "router",
+      startedAt,
+      receivedAt: performance.now(),
+    });
+  } catch (error) {
+    if (error instanceof RecordingProofUnavailable) throw error;
+    recordingBlocked = true;
+    throw new Error("Recording identity changed", { cause: error });
+  }
+  if (recordingBlocked) throw new Error("Recording identity changed");
+  return json;
 }
 
 /**
@@ -1275,7 +1299,7 @@ async function pollAlerts(): Promise<void> {
     alerts: { starlinkOutage: isStarlinkOutage(latestSamples) },
     atMs: Date.now(),
   };
-  recordAlertTransitions(alertEngine.update(observation));
+  if (!recordingBlocked) recordAlertTransitions(alertEngine.update(observation));
 }
 
 /**
@@ -1496,7 +1520,7 @@ function nonOverlapping(run: () => Promise<void>): () => Promise<void> {
 }
 
 async function poll(): Promise<void> {
-  await pollAlerts();
+  if (recordingBlocked) return;
 
   let history: Awaited<ReturnType<typeof getHistory>>;
   try {
@@ -2076,6 +2100,11 @@ seedClientTotals(Date.now());
 // Every device poll is scheduled through nonOverlapping, so a slow or silent
 // device makes a cycle be skipped rather than run alongside the one before it.
 const pollCycle = nonOverlapping(poll);
+const pollAlertsCycle = nonOverlapping(pollAlerts);
+const legacyPollCycle = nonOverlapping(async () => {
+  await pollAlerts();
+  await poll();
+});
 const pollClientsCycle = nonOverlapping(pollClients);
 const pollObstructionCycle = nonOverlapping(pollObstruction);
 
@@ -2086,9 +2115,22 @@ const pollObstructionCycle = nonOverlapping(pollObstruction);
  * pauser and account reader before the first allowance is enforced: started at
  * import, the first poll can reach a rule with nothing behind it to pause with.
  */
+export function flushRecording(): void {
+  writeSampleSnapshot();
+  clientWindow.snapshot();
+  clientTotals.snapshot();
+}
 export function start(): void {
-  void pollCycle();
-  setInterval(() => void pollCycle(), POLL_MS);
+  // Scoped ingestion waits for these existing status reads. Keep their cadence
+  // independent of a pending history reply so the proof barrier cannot deadlock.
+  const tick = () => {
+    if (recordingObserver) {
+      void pollAlertsCycle();
+      void pollCycle();
+    } else void legacyPollCycle();
+  };
+  tick();
+  setInterval(tick, POLL_MS);
   setInterval(writeSampleSnapshot, SNAPSHOT_EVERY_MS);
   setInterval(() => {
     rotateLogIfLarge(OUT_LOG_FILE);

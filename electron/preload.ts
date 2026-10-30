@@ -18,6 +18,8 @@ import {
   ACCOUNT_REQUEST_CHANNEL,
   ACCOUNT_CHANGED_CHANNEL,
   ACCOUNT_HOME_CHANNEL,
+  LOCAL_REQUEST_CHANNEL,
+  LOCAL_STATE_CHANNEL,
 } from "./ipc";
 import type { UpdateState } from "./updater";
 
@@ -54,6 +56,16 @@ contextBridge.exposeInMainWorld("dishlink", {
   signIn: (): Promise<{ ok: boolean; message?: string }> => ipcRenderer.invoke("starlink-signin"),
   ...(process.platform === "win32"
     ? {
+        localRequest: (request: import("../core/localSource").LocalRequest) =>
+          ipcRenderer.invoke(LOCAL_REQUEST_CHANNEL, request),
+        onLocalState: (listener: (state: import("../core/localSource").LocalState) => void) => {
+          const receive = (_event: unknown, state: import("../core/localSource").LocalState) =>
+            listener(state);
+          ipcRenderer.on(LOCAL_STATE_CHANNEL, receive);
+          return () => {
+            ipcRenderer.removeListener(LOCAL_STATE_CHANNEL, receive);
+          };
+        },
         onAccountsChanged: (listener: (event: AccountChange) => void): (() => void) => {
           const receive = (_event: unknown, change: AccountChange) => listener(change);
           ipcRenderer.on(ACCOUNT_CHANGED_CHANNEL, receive);
@@ -138,8 +150,8 @@ contextBridge.exposeInMainWorld("dishlink", {
         // The window's live dish throughput, forwarded to the readout so it shows
         // the same number the dashboard does. Fire-and-forget: it fires once a
         // second and the readout is cosmetic, so nothing waits on it.
-        reportThroughput: (downBps: number, upBps: number): void => {
-          ipcRenderer.send("report-throughput", downBps, upBps);
+        reportThroughput: (downBps: number, upBps: number, lease?: string): void => {
+          ipcRenderer.send("report-throughput", downBps, upBps, lease);
         },
         onMenuBarThroughput: (listener: (on: boolean) => void): (() => void) => {
           const handler = (_event: unknown, on: boolean): void => listener(on);

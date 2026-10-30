@@ -36,12 +36,14 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     tailwindcss(),
-    starlinkCloudProxy(),
+    starlinkCloudProxy({ recorder: !(withElectron && process.platform === "win32") }),
     routerProxy(),
     ...(withElectron
       ? [
           electron({
-            main: { entry: "electron/main.ts" },
+            main: {
+              entry: { main: "electron/main.ts", recorderWorker: "electron/recorderWorker.ts" },
+            },
             preload: { input: "electron/preload.ts" },
           }),
         ]

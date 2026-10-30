@@ -39,7 +39,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useTheme } from "./hooks/useTheme";
 import { dishModelFor } from "./lib/dishMesh";
 
-export default function App() {
+export default function App({ localScope }: { localScope?: string } = {}) {
   const { t } = useTranslation();
   const { theme, cycleTheme } = useTheme();
   const {
@@ -100,8 +100,9 @@ export default function App() {
     window.dishlink?.reportThroughput?.(
       status?.downlinkThroughputBps ?? 0,
       status?.uplinkThroughputBps ?? 0,
+      localScope,
     );
-  }, [status]);
+  }, [status, localScope]);
 
   const {
     nowMs,

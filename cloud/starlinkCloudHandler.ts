@@ -99,6 +99,8 @@ export interface CloudResult {
 }
 
 export interface CloudHandlerOptions {
+  /** Trusted local binding; never inferred from the first account or mesh node. */
+  scope?: DishContext & { routerId: string; routerIds: string[]; valid: () => boolean };
   /** Injected for tests / non-Node hosts; defaults to global fetch. */
   fetch?: typeof fetch;
   /** Cookie persistence — host-wired (dev: a file; Electron: the OS keychain).
@@ -261,7 +263,13 @@ interface ServiceLineResult {
  *  refresh and serves the /cloud/* routes. State is per-instance so tests get a
  *  clean client each time. */
 export function createCloudHandler(options: CloudHandlerOptions = {}) {
-  const doFetch = options.fetch ?? fetch;
+  const baseFetch = options.fetch ?? fetch;
+  const doFetch: typeof fetch = async (input, init) => {
+    if (options.scope && !options.scope.valid()) throw new Error("Local scope changed");
+    const response = await baseFetch(input, init);
+    if (options.scope && !options.scope.valid()) throw new Error("Local scope changed");
+    return response;
+  };
   const readCookie = options.readCookie ?? (() => null);
   const writeCookie = options.writeCookie ?? (() => {});
   const clearCookie = options.clearCookie ?? (() => {});
@@ -363,6 +371,7 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
     abortSignal?: AbortSignal,
   ): Promise<T> {
     const attempt = async (force: boolean): Promise<T> => {
+      if (options.scope && !options.scope.valid()) throw new Error("Local scope changed");
       const cookie = await freshCookie(force, abortSignal);
       if (!cookie) throw new SessionExpiredError();
       return run(cookie);
@@ -440,6 +449,7 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
     cookie: string,
     abortSignal?: AbortSignal,
   ): Promise<{ acc: string; sl: string }> {
+    if (options.scope) return { acc: options.scope.accountId, sl: options.scope.serviceLineNumber };
     if (cachedIds && Date.now() - cachedIdsAt < IDS_TTL_MS) return cachedIds;
     const list = (await apiGet(
       "/webagg/v2/accounts/service-lines?limit=100&page=0&isConverting=false&serviceAddressId=&onlyActive=false&searchString=&onlyNoUts=false",
@@ -475,6 +485,10 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
      *  correction costs one call on a deliberate, rare action. */
     cached = true,
   ): Promise<string> {
+    if (options.scope) {
+      if (!options.scope.valid()) throw new Error("Local scope changed");
+      return options.scope.routerId;
+    }
     if (cached && cachedControllerId && Date.now() - cachedControllerIdAt < IDS_TTL_MS) {
       return cachedControllerId;
     }
@@ -546,7 +560,36 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
             ),
           ]);
           if (telemetry) rememberController(telemetry);
-          return { identity, serviceLine, deviceTelemetry: deviceTelemetryFrom(telemetry) };
+          let selectedService = serviceLine;
+          const deviceTelemetry = deviceTelemetryFrom(telemetry);
+          if (options.scope) {
+            const scope = options.scope;
+            const content = object(object(serviceLine).content);
+            if (
+              content.serviceLineNumber !== scope.serviceLineNumber ||
+              (content.accountReferenceId !== undefined &&
+                content.accountReferenceId !== scope.accountId)
+            )
+              throw new Error("Local service changed");
+            selectedService = {
+              ...object(serviceLine),
+              content: {
+                ...content,
+                userTerminals: Array.isArray(content.userTerminals)
+                  ? content.userTerminals.filter(
+                      (value) => object(value).userTerminalId === scope.terminalId,
+                    )
+                  : [],
+              },
+            };
+            const devices = new Set([
+              scope.terminalId.startsWith("ut") ? scope.terminalId : "ut" + scope.terminalId,
+              ...scope.routerIds.map((id) => (id.startsWith("Router-") ? id : "Router-" + id)),
+            ]);
+            for (const id of Object.keys(deviceTelemetry))
+              if (!devices.has(id)) delete deviceTelemetry[id];
+          }
+          return { identity, serviceLine: selectedService, deviceTelemetry };
         });
         return { status: 200, body };
       }
@@ -894,6 +937,14 @@ export function createCloudHandler(options: CloudHandlerOptions = {}) {
   /** The renderer names a field and its new value, never protobuf. Anything
    *  outside these shapes is refused before the account is touched. */
   function validRouterConfig(update: RouterConfigUpdate): boolean {
+    if (
+      options.scope &&
+      update?.kind === "meshName" &&
+      !options.scope.routerIds.some(
+        (id) => (id.startsWith("Router-") ? id : "Router-" + id) === update.deviceId,
+      )
+    )
+      return false;
     if (update?.kind === "subnet") {
       if (typeof update.subnet !== "string" || typeof update.password !== "string") return false;
       return subnetRefusal(update.subnet, update.password) === null;

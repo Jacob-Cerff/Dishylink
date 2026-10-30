@@ -11,9 +11,12 @@ import type { ObserverLocation } from "./satellites";
 const LOCATION_STORAGE_KEY = "dishylink-observer-location";
 const LOCATION_CLEARED_KEY = "dishylink-observer-cleared";
 
-export function loadSavedLocation(): ObserverLocation | null {
+function storageKey(key: string, terminalId?: string): string {
+  return terminalId ? key + ":" + terminalId : key;
+}
+export function loadSavedLocation(terminalId?: string): ObserverLocation | null {
   try {
-    const saved = localStorage.getItem(LOCATION_STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey(LOCATION_STORAGE_KEY, terminalId));
     if (!saved) return null;
     const parsed = JSON.parse(saved) as ObserverLocation;
     if (typeof parsed.latitudeDeg !== "number" || typeof parsed.longitudeDeg !== "number")
@@ -30,9 +33,9 @@ export function loadSavedLocation(): ObserverLocation | null {
  * automatic source may fill in for someone who has never chosen, but must never
  * undo a deliberate clear — "clear" means unset, not "revert to a guess".
  */
-export function loadLocationCleared(): boolean {
+export function loadLocationCleared(terminalId?: string): boolean {
   try {
-    return localStorage.getItem(LOCATION_CLEARED_KEY) === "true";
+    return localStorage.getItem(storageKey(LOCATION_CLEARED_KEY, terminalId)) === "true";
   } catch {
     return false;
   }
@@ -41,14 +44,14 @@ export function loadLocationCleared(): boolean {
 // The cleared flag is maintained by the two writers below rather than by their
 // callers, so the pair can never drift out of step.
 
-export function saveLocation(location: ObserverLocation): void {
-  localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
-  localStorage.removeItem(LOCATION_CLEARED_KEY); // choosing a location un-clears
+export function saveLocation(location: ObserverLocation, terminalId?: string): void {
+  localStorage.setItem(storageKey(LOCATION_STORAGE_KEY, terminalId), JSON.stringify(location));
+  localStorage.removeItem(storageKey(LOCATION_CLEARED_KEY, terminalId)); // choosing a location un-clears
 }
 
-export function clearSavedLocation(): void {
-  localStorage.removeItem(LOCATION_STORAGE_KEY);
-  localStorage.setItem(LOCATION_CLEARED_KEY, "true");
+export function clearSavedLocation(terminalId?: string): void {
+  localStorage.removeItem(storageKey(LOCATION_STORAGE_KEY, terminalId));
+  localStorage.setItem(storageKey(LOCATION_CLEARED_KEY, terminalId), "true");
 }
 
 /**

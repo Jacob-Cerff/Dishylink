@@ -11,6 +11,7 @@ describe("Windows account preload boundary", () => {
     let bridge!: {
       onOpenAccounts: (callback: (...args: unknown[]) => void) => () => void;
       onAccountsChanged: (callback: (...args: unknown[]) => void) => () => void;
+      onLocalState: (callback: (...args: unknown[]) => void) => () => void;
     };
     const source = readFileSync(new URL("./preload.ts", import.meta.url), "utf8");
     const script = ts.transpileModule(source, {
@@ -35,12 +36,19 @@ describe("Windows account preload boundary", () => {
     });
     const home: unknown[][] = [];
     const changes: unknown[][] = [];
+    const states: unknown[][] = [];
+    const stopStates = bridge.onLocalState((...args) => states.push(args));
     const stopHome = bridge.onOpenAccounts((...args) => home.push(args));
     const stopChanges = bridge.onAccountsChanged((...args) => changes.push(args));
     const privateEvent = { sender: { privileged: true } };
     const change = { kind: "snapshots", accountId: "ACC-A" };
     ipc.emit(channels.ACCOUNT_HOME_CHANNEL, privateEvent);
     ipc.emit(channels.ACCOUNT_CHANGED_CHANNEL, privateEvent, change);
+    ipc.emit(channels.LOCAL_STATE_CHANNEL, privateEvent, { version: 1 });
+    expect(states).toEqual([[{ version: 1 }]]);
+    stopStates();
+    ipc.emit(channels.LOCAL_STATE_CHANNEL, privateEvent, { version: 1 });
+    expect(states).toHaveLength(1);
     expect(home).toEqual([[]]);
     expect(changes).toEqual([[change]]);
     stopHome();

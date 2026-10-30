@@ -1,5 +1,6 @@
 // Dish configuration and maintenance — the Starlink half of the settings panel.
 
+import { useLocalControls } from "../../lib/localControls";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckIcon, InfoIcon } from "lucide-react";
@@ -110,6 +111,7 @@ export function StarlinkSettingsTab({
   onCopyDiagnostics: () => Promise<"copied" | "failed">;
 }) {
   const { t } = useTranslation();
+  const { writes } = useLocalControls();
   const timeLocale = useTimeLocale();
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const config = settings.config;
@@ -144,7 +146,7 @@ export function StarlinkSettingsTab({
           <SettingRow title={t("settings.snowMelt")} caption={t("settings.snowMeltDesc")}>
             <Select
               value={config.snowMeltMode ?? "AUTO"}
-              disabled={settings.saving}
+              disabled={settings.saving || !writes}
               onValueChange={(mode) => save({ snowMeltMode: mode as SnowMeltMode })}
             >
               <SelectTrigger className={triggerClass} style={{ width: 118 }}>
@@ -171,7 +173,7 @@ export function StarlinkSettingsTab({
           >
             <Switch
               checked={sleepEnabled}
-              disabled={settings.saving}
+              disabled={settings.saving || !writes}
               onCheckedChange={(enabled) =>
                 save(
                   enabled
@@ -193,7 +195,7 @@ export function StarlinkSettingsTab({
               </span>
               <TimePicker
                 minutes={sleepStartLocal}
-                disabled={settings.saving}
+                disabled={settings.saving || !writes}
                 onChange={(newStartLocal) =>
                   save({
                     powerSaveStartMinutes: localMinutesToUtcMinutes(newStartLocal),
@@ -206,7 +208,7 @@ export function StarlinkSettingsTab({
               </span>
               <TimePicker
                 minutes={wakeLocal}
-                disabled={settings.saving}
+                disabled={settings.saving || !writes}
                 onChange={(newWakeLocal) =>
                   save({
                     powerSaveDurationMinutes:
@@ -226,7 +228,7 @@ export function StarlinkSettingsTab({
           >
             <Select
               value={String(updateWindow.hour)}
-              disabled={settings.saving}
+              disabled={settings.saving || !writes}
               onValueChange={(hour) => save({ swupdateRebootHour: Number(hour) })}
             >
               <SelectTrigger className={triggerClass}>
@@ -249,7 +251,7 @@ export function StarlinkSettingsTab({
           <SettingRow title={t("settings.deferUpdates")} caption={t("settings.deferUpdatesDesc")}>
             <Switch
               checked={Boolean(config.swupdateThreeDayDeferralEnabled)}
-              disabled={settings.saving}
+              disabled={settings.saving || !writes}
               onCheckedChange={(enabled) => save({ swupdateThreeDayDeferralEnabled: enabled })}
             />
           </SettingRow>

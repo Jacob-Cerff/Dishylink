@@ -1,6 +1,7 @@
 // Drill-in for one client device: identity header with rename, the spec sheet,
 // and its throughput charts.
 
+import { useLocalControls } from "../../lib/localControls";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { throughputMbps, type WifiClientJson } from "@core/dishClient";
@@ -92,6 +93,7 @@ export function DeviceDetail({
   onRename: (clientId: number, givenName: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const { writes } = useLocalControls();
   const [editing, setEditing] = useState(false);
   const [editingMeter, setEditingMeter] = useState(false);
   const [pendingPaused, setPendingPaused] = useState<boolean | null>(null);
@@ -115,7 +117,7 @@ export function DeviceDetail({
     clientId: client.clientId,
     isThisDevice,
     viewerIdentified,
-    cloudConnected: cloudStatus === "ready",
+    cloudConnected: writes && cloudStatus === "ready",
   });
   // The recorder counts a limit with or without an account, so only the pause
   // write needs one.
@@ -123,7 +125,7 @@ export function DeviceDetail({
     clientId: client.clientId,
     isThisDevice,
     viewerIdentified,
-    cloudConnected: true,
+    cloudConnected: writes,
   });
 
   useEffect(() => {
@@ -187,7 +189,7 @@ export function DeviceDetail({
           <div className='min-w-0'>
             <div className='flex items-center gap-2'>
               <span className='truncate text-[18px] font-bold text-foreground'>{name}</span>
-              {!editing && <RenameButton onClick={() => setEditing(true)} />}
+              {writes && !editing && <RenameButton onClick={() => setEditing(true)} />}
             </div>
             <div className='text-[11.5px] font-medium text-muted-foreground'>
               {deviceRowSubtitle(client, isThisDevice, t)}

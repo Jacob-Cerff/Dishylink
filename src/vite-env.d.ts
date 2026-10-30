@@ -26,6 +26,12 @@ interface Window {
       listener: (event: import("../core/accountBridge").AccountChange) => void,
     ) => () => void;
     onOpenAccounts?: (listener: () => void) => () => void;
+    localRequest?: (
+      request: import("../core/localSource").LocalRequest,
+    ) => Promise<import("../core/localSource").LocalReply>;
+    onLocalState?: (
+      listener: (state: import("../core/localSource").LocalState) => void,
+    ) => () => void;
     accountRequest?: (
       request: import("../core/accountBridge").AccountRequest,
     ) => Promise<{ status: number; body: unknown }>;
@@ -52,7 +58,7 @@ interface Window {
     menuBarThroughput?: () => Promise<boolean>;
     setMenuBarThroughput?: (on: boolean) => Promise<boolean>;
     onMenuBarThroughput?: (listener: (on: boolean) => void) => () => void;
-    reportThroughput?: (downBps: number, upBps: number) => void;
+    reportThroughput?: (downBps: number, upBps: number, lease?: string) => void;
     // Drop the macOS tray icon so only the readout shows. macOS only, so optional.
     hideTrayIcon?: () => Promise<boolean>;
     setHideTrayIcon?: (hidden: boolean) => Promise<boolean>;

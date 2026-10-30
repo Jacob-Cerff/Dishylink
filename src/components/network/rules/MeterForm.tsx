@@ -1,6 +1,7 @@
 // Setting a device's limit from its own card. Widening it to more devices moves
 // the rule into a group rather than leaving a second rule on the device.
 
+import { useLocalControls } from "../../../lib/localControls";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -67,7 +68,8 @@ export function MeterForm({
   const groups = useDeviceGroups();
   const billingDay = billingDayOf(usage?.content?.billingCyclesAnnotated);
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
-  const busy = pending !== null;
+  const { writes } = useLocalControls();
+  const busy = pending !== null || !writes;
   // Until the groups have been read, this device's membership is unknown. Saving
   // against that guess would write a device rule over a group's terms, which the
   // next projection silently puts back.
